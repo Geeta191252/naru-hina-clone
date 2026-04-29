@@ -78,6 +78,12 @@ SHORTENER_WEBSITE2 = environ.get("SHORTENER_WEBSITE2", "adrinolinks.in")
 SHORTENER_API3 = environ.get("SHORTENER_API3", "adrinolinks.in")
 SHORTENER_WEBSITE3 = environ.get("SHORTENER_WEBSITE3", "ab1c7273f36a02924e39bc2dd9babeef948b470b")
 
+# ===== Monetag Mini App Verification =====
+USE_MINIAPP = is_enabled(environ.get('USE_MINIAPP', "True"), True)  # Replace shortener with Monetag Mini App
+MONETAG_ZONE_ID = environ.get('MONETAG_ZONE_ID', '10943083')
+MONETAG_ADS_COUNT = int(environ.get('MONETAG_ADS_COUNT', '3'))
+MINIAPP_TOKEN_EXPIRY = int(environ.get('MINIAPP_TOKEN_EXPIRY', '900'))  # 15 minutes
+
 TWO_VERIFY_GAP = int(environ.get('TWO_VERIFY_GAP', "1200"))
 THREE_VERIFY_GAP = int(environ.get('THREE_VERIFY_GAP', "54000"))
 

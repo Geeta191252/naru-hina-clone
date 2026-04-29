@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Watch Ads to Unlock File</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<!-- Monetag Rewarded Interstitial SDK -->
+<script src='//libtl.com/sdk.js' data-zone='{{zone_id}}' data-sdk='show_{{zone_id}}'></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--tg-theme-bg-color,#0f172a);color:var(--tg-theme-text-color,#fff);overflow:hidden}
+  body{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center}
+  .card{width:100%;max-width:380px;background:var(--tg-theme-secondary-bg-color,#1e293b);border-radius:20px;padding:32px 24px;box-shadow:0 10px 40px rgba(0,0,0,.35)}
+  h1{font-size:22px;margin-bottom:8px;font-weight:700}
+  p.sub{font-size:14px;opacity:.75;margin-bottom:24px;line-height:1.5}
+  .progress{display:flex;justify-content:center;gap:10px;margin-bottom:28px}
+  .dot{width:42px;height:6px;border-radius:3px;background:rgba(255,255,255,.15);transition:background .3s}
+  .dot.done{background:#22c55e}
+  .dot.active{background:var(--tg-theme-button-color,#3b82f6)}
+  .step-num{font-size:48px;font-weight:800;color:var(--tg-theme-button-color,#3b82f6);margin-bottom:4px;line-height:1}
+  .step-label{font-size:13px;opacity:.6;margin-bottom:24px}
+  button{width:100%;padding:16px;border:none;border-radius:14px;background:var(--tg-theme-button-color,#3b82f6);color:var(--tg-theme-button-text-color,#fff);font-size:16px;font-weight:600;cursor:pointer;transition:transform .15s,opacity .2s}
+  button:active{transform:scale(.97)}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .loader{display:inline-block;width:18px;height:18px;border:2.5px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:8px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .success{font-size:60px;margin-bottom:16px}
+  .err{color:#ef4444;font-size:13px;margin-top:12px;min-height:16px}
+  .footer{position:fixed;bottom:12px;font-size:11px;opacity:.4}
+</style>
+</head>
+<body>
+  <div class="card" id="card">
+    <div class="step-num" id="stepNum">1<span style="opacity:.4">/{{ads_count}}</span></div>
+    <div class="step-label">Watch ads to unlock your file</div>
+    <h1 id="title">Ready to start?</h1>
+    <p class="sub" id="subtitle">Click below and complete <b>{{ads_count}} short ads</b> to receive your file.</p>
+    <div class="progress" id="progress"></div>
+    <button id="actionBtn" onclick="handleClick()">▶ Watch Ad 1</button>
+    <div class="err" id="err"></div>
+  </div>
+  <div class="footer">Powered by Monetag</div>
+
+<script>
+  const tg = window.Telegram?.WebApp;
+  if (tg) { tg.ready(); tg.expand(); }
+
+  const TOTAL = {{ads_count}};
+  const TOKEN = "{{token}}";
+  const VERIFY_URL = "{{verify_url}}";
+  const REDIRECT_URL = "{{redirect_url}}";
+  const ZONE_ID = "{{zone_id}}";
+
+  let current = 0;
+  const btn = document.getElementById('actionBtn');
+  const err = document.getElementById('err');
+  const stepNum = document.getElementById('stepNum');
+  const title = document.getElementById('title');
+  const subtitle = document.getElementById('subtitle');
+  const prog = document.getElementById('progress');
+
+  // Build dots
+  for (let i = 0; i < TOTAL; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot';
+    prog.appendChild(d);
+  }
+  updateDots();
+
+  function updateDots() {
+    [...prog.children].forEach((d, i) => {
+      d.className = 'dot' + (i < current ? ' done' : i === current ? ' active' : '');
+    });
+    stepNum.innerHTML = (current + 1) + '<span style="opacity:.4">/' + TOTAL + '</span>';
+  }
+
+  function setBtn(text, disabled = false) {
+    btn.innerHTML = text;
+    btn.disabled = disabled;
+  }
+
+  async function showAd() {
+    err.textContent = '';
+    const fn = window['show_' + ZONE_ID];
+    if (typeof fn !== 'function') {
+      throw new Error('Ad SDK not loaded. Check your internet & try again.');
+    }
+    // Rewarded Interstitial — promise resolves on ad complete
+    return await fn();
+  }
+
+  async function handleClick() {
+    setBtn('<span class="loader"></span> Loading ad...', true);
+    try {
+      await showAd();
+      current++;
+      updateDots();
+      if (current >= TOTAL) {
+        await finish();
+      } else {
+        setBtn('▶ Watch Ad ' + (current + 1));
+        title.textContent = 'Great! ' + (TOTAL - current) + ' more to go';
+        subtitle.innerHTML = 'Tap the button to watch the next ad.';
+      }
+    } catch (e) {
+      console.error(e);
+      err.textContent = e.message || 'Ad failed to load. Please try again.';
+      setBtn('▶ Retry Ad ' + (current + 1));
+    }
+  }
+
+  async function finish() {
+    setBtn('<span class="loader"></span> Verifying...', true);
+    title.textContent = 'Almost done!';
+    subtitle.textContent = 'Confirming your reward...';
+    try {
+      const res = await fetch(VERIFY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: TOKEN, ads_watched: TOTAL })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Verification failed');
+
+      document.getElementById('card').innerHTML =
+        '<div class="success">✅</div>' +
+        '<h1>All done!</h1>' +
+        '<p class="sub" style="margin:12px 0 24px">Opening your file in Telegram...</p>' +
+        '<button onclick="goBack()">Open File</button>';
+      setTimeout(goBack, 800);
+    } catch (e) {
+      err.textContent = e.message;
+      setBtn('🔄 Retry Verification');
+      btn.onclick = finish;
+    }
+  }
+
+  function goBack() {
+    if (tg) {
+      tg.openTelegramLink(REDIRECT_URL);
+      setTimeout(() => tg.close(), 300);
+    } else {
+      window.location.href = REDIRECT_URL;
+    }
+  }
+</script>
+</body>
+</html>

@@ -18,6 +18,36 @@ class Database:
         self.codes = self.db.codes
         self.connection = self.db.connections
         self.forceadd = self.db.forceadd
+        self.miniapp_tokens = self.db.miniapp_tokens
+
+    async def create_miniapp_token(self, token, user_id, grp_id, file_id, kind, expiry_seconds=900):
+        """Store a Mini App token. kind = 'sendall' or 'notcopy'."""
+        now = datetime.datetime.now(pytz.timezone('Asia/Kolkata'))
+        expires = now + timedelta(seconds=expiry_seconds)
+        await self.miniapp_tokens.update_one(
+            {"_id": token},
+            {"$set": {
+                "user_id": int(user_id),
+                "grp_id": int(grp_id) if grp_id else 0,
+                "file_id": file_id,
+                "kind": kind,
+                "verified": False,
+                "ads_watched": 0,
+                "created_at": now,
+                "expires_at": expires,
+            }},
+            upsert=True,
+        )
+
+    async def get_miniapp_token(self, token):
+        return await self.miniapp_tokens.find_one({"_id": token})
+
+    async def mark_miniapp_verified(self, token, ads_watched):
+        await self.miniapp_tokens.update_one(
+            {"_id": token},
+            {"$set": {"verified": True, "ads_watched": int(ads_watched),
+                      "verified_at": datetime.datetime.now(pytz.timezone('Asia/Kolkata'))}}
+        )
 
     async def find_join_req(self, id, chnl):
         chnl = str(chnl)
