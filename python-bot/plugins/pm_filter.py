@@ -1461,6 +1461,8 @@ async def cb_handler(client: Client, query: CallbackQuery):
             ],[
                 InlineKeyboardButton('ʀᴇꜰᴇʀ ꜰʀɪᴇɴᴅꜱ', callback_data='reffff'),
                 InlineKeyboardButton('ꜰʀᴇᴇ ᴛʀɪᴀʟ', callback_data='give_trial')
+            ],[
+                InlineKeyboardButton('🚀 ᴜᴘɢʀᴀᴅᴇ ᴘʀᴇᴍɪᴜᴍ ᴘʟᴀɴ 🚀', callback_data='buy')
             ],[            
                 InlineKeyboardButton('⇋ ʙᴀᴄᴋ ᴛᴏ ʜᴏᴍᴇ ⇋', callback_data='start')
             ]]
@@ -1481,8 +1483,9 @@ async def cb_handler(client: Client, query: CallbackQuery):
     elif query.data == "buy":
         try:
             btn = [[ 
-                InlineKeyboardButton('ꜱᴛᴀʀ', callback_data='star'),
-                InlineKeyboardButton('ᴜᴘɪ', callback_data='upi')
+                InlineKeyboardButton('💳 ᴘᴀʏ ᴠɪᴀ ᴜᴘɪ', callback_data='upi'),
+            ],[
+                InlineKeyboardButton('⭐ ᴘᴀʏ ᴠɪᴀ ꜱᴛᴀʀ', callback_data='star'),
             ],[
                 InlineKeyboardButton('⋞ ʙᴀᴄᴋ', callback_data='premium')
             ]]
@@ -1493,7 +1496,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
                 InputMediaPhoto(SUBSCRIPTION)
                 ) 
             await query.message.edit_text(
-                text=script.PREMIUM_TEXT.format(query.from_user.mention),
+                text=script.PREMIUM_TEXT,
                 reply_markup=reply_markup,
                 parse_mode=enums.ParseMode.HTML
             ) 
@@ -1503,7 +1506,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
     elif query.data == "upi":
         try:
             btn = [[ 
-                InlineKeyboardButton('📱 ꜱᴇɴᴅ  ᴘᴀʏᴍᴇɴᴛ ꜱᴄʀᴇᴇɴꜱʜᴏᴛ', url=OWNER_LNK),
+                InlineKeyboardButton('📱 ꜱᴇɴᴅ ᴘᴀʏᴍᴇɴᴛ ꜱᴄʀᴇᴇɴꜱʜᴏᴛ', url=OWNER_LNK),
             ],[
                 InlineKeyboardButton('⋞ ʙᴀᴄᴋ', callback_data='buy')
             ]]
@@ -1514,7 +1517,7 @@ async def cb_handler(client: Client, query: CallbackQuery):
                 InputMediaPhoto(SUBSCRIPTION)
                 ) 
             await query.message.edit_text(
-                text=script.PREMIUM_UPI_TEXT.format(query.from_user.mention),
+                text=script.PREMIUM_UPI_TEXT,
                 reply_markup=reply_markup,
                 parse_mode=enums.ParseMode.HTML
             ) 
