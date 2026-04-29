@@ -181,9 +181,9 @@ Nᴀᴍᴇ - {}
 ⏰ <b>Today Only – Grab Fast!</b>
 
 <blockquote>💎 <b>Plans:</b>
-₹50  •  1 Week
-₹120 •  1 Month
-₹150 •  3 Months
+₹70  •  1 Week
+₹140 •  1 Month
+₹200 •  3 Months
 ₹320 •  6 Months
 ₹599 •  1 Year
 👑 ₹1999 • Lifetime + VIP</blockquote>
