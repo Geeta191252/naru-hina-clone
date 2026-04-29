@@ -18,10 +18,11 @@
         </a>
     </div>
     <div class="container">
-        <div class="player-container">
-            <video id="player" class="player" playsinline controls autoplay muted preload="auto" src="{{file_url}}">
+        <div class="player-container" style="position:relative;">
+            <video id="player" class="player" playsinline controls autoplay muted preload="auto" src="{{file_url}}" style="width:100%;height:auto;">
                 Your browser does not support the video tag.
             </video>
+            <button onclick="goFullscreen()" style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.6);color:#fff;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;z-index:10;">⛶ Fullscreen</button>
         </div>
         <div class="file-info">
             <div class="title">
@@ -57,8 +58,21 @@
 <script>
 function openMX(){
   var url = "{{file_url}}";
-  var intent = "intent:" + url + "#Intent;package=com.mxtech.videoplayer.ad;S.title=" + encodeURIComponent("{{file_name}}") + ";end";
-  window.location.href = intent;
+  var title = encodeURIComponent("{{file_name}}");
+  // Try MX Player Pro first, then fallback to free version
+  var intentPro = "intent:" + url + "#Intent;package=com.mxtech.videoplayer.pro;S.title=" + title + ";type=video/*;end";
+  var intentFree = "intent:" + url + "#Intent;package=com.mxtech.videoplayer.ad;S.title=" + title + ";type=video/*;end";
+  var fallback = "intent:" + url + "#Intent;action=android.intent.action.VIEW;type=video/*;end";
+  // Use generic VIEW intent so any installed player (MX/VLC) opens
+  try { window.location.href = intentFree; } catch(e){}
+  setTimeout(function(){ window.location.href = fallback; }, 800);
+}
+function goFullscreen(){
+  var v = document.getElementById('player');
+  if(v.requestFullscreen) v.requestFullscreen();
+  else if(v.webkitEnterFullscreen) v.webkitEnterFullscreen();
+  else if(v.webkitRequestFullscreen) v.webkitRequestFullscreen();
+  else if(v.msRequestFullscreen) v.msRequestFullscreen();
 }
 </script>
 
