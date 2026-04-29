@@ -45,7 +45,12 @@ async def start(client, message):
         verify_id_info = await db.get_verify_id_info(user_id, verify_id)
         if not verify_id_info or verify_id_info["verified"]:
             await message.reply("<b>ʟɪɴᴋ ᴇxᴘɪʀᴇᴅ ᴛʀʏ ᴀɢᴀɪɴ...</b>")
-            return  
+            return
+        if USE_MINIAPP:
+            mini = await db.get_miniapp_token(verify_id)
+            if not mini or not mini.get("verified"):
+                await message.reply("<b>❌ ᴀᴅꜱ ɴᴏᴛ ᴄᴏᴍᴘʟᴇᴛᴇᴅ. ᴘʟᴇᴀꜱᴇ ᴡᴀᴛᴄʜ ᴀʟʟ ᴀᴅꜱ ɪɴ ᴛʜᴇ ᴍɪɴɪ ᴀᴘᴘ.</b>")
+                return
         ist_timezone = pytz.timezone('Asia/Kolkata')
         if await db.user_verified(user_id):
             key = "third_time_verified"
