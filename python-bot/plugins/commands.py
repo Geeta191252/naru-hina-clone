@@ -235,16 +235,26 @@ async def start(client, message):
                 verify_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=7))
                 await db.create_verify_id(user_id, verify_id)
                 temp.VERIFICATIONS[user_id] = grp_id
-                if message.command[1].startswith('allfiles'):
-                    verify = await get_shortlink(f"https://telegram.me/{temp.U_NAME}?start=sendall_{user_id}_{verify_id}_{file_id}", grp_id, is_second_shortener, is_third_shortener)
+                kind = 'sendall' if message.command[1].startswith('allfiles') else 'notcopy'
+                if USE_MINIAPP:
+                    # Monetag Mini App flow (3 ads instead of shortener)
+                    await db.create_miniapp_token(verify_id, user_id, grp_id, file_id, kind, MINIAPP_TOKEN_EXPIRY)
+                    miniapp_url = f"{URL.rstrip('/')}/miniapp/{verify_id}"
+                    bot_username = (temp.U_NAME or '').lstrip('@')
+                    # Use t.me startapp link so it opens as Telegram Mini App
+                    verify = f"https://t.me/{bot_username}/watch?startapp={verify_id}" if False else miniapp_url
                 else:
-                    verify = await get_shortlink(f"https://telegram.me/{temp.U_NAME}?start=notcopy_{user_id}_{verify_id}_{file_id}", grp_id, is_second_shortener, is_third_shortener)
+                    if kind == 'sendall':
+                        verify = await get_shortlink(f"https://telegram.me/{temp.U_NAME}?start=sendall_{user_id}_{verify_id}_{file_id}", grp_id, is_second_shortener, is_third_shortener)
+                    else:
+                        verify = await get_shortlink(f"https://telegram.me/{temp.U_NAME}?start=notcopy_{user_id}_{verify_id}_{file_id}", grp_id, is_second_shortener, is_third_shortener)
                 if is_third_shortener:
                     howtodownload = settings.get('tutorial_3', TUTORIAL_3)
                 else:
                     howtodownload = settings.get('tutorial_2', TUTORIAL_2) if is_second_shortener else settings.get('tutorial', TUTORIAL)
+                verify_btn_text = "🎬 ᴡᴀᴛᴄʜ ᴀᴅꜱ & ɢᴇᴛ ꜰɪʟᴇ 🎬" if USE_MINIAPP else "♻️ ᴄʟɪᴄᴋ ʜᴇʀᴇ ᴛᴏ ᴠᴇʀɪꜰʏ ♻️"
                 buttons = [[
-                    InlineKeyboardButton(text="♻️ ᴄʟɪᴄᴋ ʜᴇʀᴇ ᴛᴏ ᴠᴇʀɪꜰʏ ♻️", url=verify)
+                    InlineKeyboardButton(text=verify_btn_text, url=verify)
                 ],[
                     InlineKeyboardButton(text="⁉️ ʜᴏᴡ ᴛᴏ ᴠᴇʀɪꜰʏ ⁉️", url=howtodownload)
                 ]]
