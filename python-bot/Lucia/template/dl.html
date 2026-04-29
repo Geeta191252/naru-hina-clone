@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="en"><head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FTMBotzX | {{file_name}}</title>
+    <title>Hidden_Xman | {{file_name}}</title>
     <link rel="stylesheet" href="https://cdn.plyr.io/3.6.12/plyr.css" />
     <link rel="stylesheet" href="https://developer-six-dusky.vercel.app/548/551/SilentXBotz.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,7 +12,7 @@
 </head><body>
     <div class="header">
         <h1>File Streaming</h1>
-        <a href="https://t.me/FTMBotzX" class="telegram-btn">
+        <a href="https://t.me/Hidden_Xman" class="telegram-btn">
             <i class="fab fa-telegram-plane"></i>
         </a>
     </div>
@@ -32,20 +32,12 @@
             <p><strong>Size:</strong> {{file_size}}</p>
         </div><div class="action-buttons">
         <div class="button-row">
-            <button class="vlc" onclick="vlc_player()"><img src="https://i.postimg.cc/15TQ4y7B/vlc.png" alt="VLC">Watch in VLC</button>
-            <button class="mx" onclick="mx_player()"><img src="https://i.postimg.cc/sx4Msv4T/mx.png" alt="MX">Watch in MX Player</button>
-        </div>
-        <div class="button-row">
-            <button class="playit" onclick="playit_player()"><img src="https://i.postimg.cc/RVGWYJFF/playit.png" alt="PlayIt">Watch in PlayIt</button>
+            <button class="mx" onclick="openMX()"><img src="https://i.postimg.cc/sx4Msv4T/mx.png" alt="MX">Watch in MX Player</button>
         </div>
         <div class="button-row download-row">
-            <button class="download" onclick="Download()">
+            <a class="download" href="{{file_url}}" download>
                 <i class="fas fa-download" style="margin-right: 0.5rem;"></i>Download
-            </button>
-        </div>
-        <div class="button-row copy-share">
-            <button class="copy" onclick="copy_url()"><i class="fas fa-copy"></i>Copy URL</button>
-            <button class="share" onclick="shareButton()"><i class="fas fa-share-alt"></i>Share URL</button>
+            </a>
         </div>
     </div>
     <div id="messagePopup" class="message-popup"></div>
@@ -54,14 +46,19 @@
             <img src="https://i.postimg.cc/zXs0sH6x/info-button.png" alt="Warning">
             <h3>Disclaimer</h3>
         </div>
-        <p>FTMBotzX Does Not Host Or Own The Streamed Content. Users Are Responsible For Complying With Copyright Laws.</p>
-        <p>All Media Is Sourced From Third-Party Services, And FTMBotzX Is Not Liable For Misuse Or Legal Violations.</p>
+        <p>Hidden_Xman Does Not Host Or Own The Streamed Content. Users Are Responsible For Complying With Copyright Laws.</p>
+        <p>All Media Is Sourced From Third-Party Services, And Hidden_Xman Is Not Liable For Misuse Or Legal Violations.</p>
     </div>
 </div>
 <!-- NO footer here -->
 
 <script src="https://cdn.plyr.io/3.6.12/plyr.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-<script src="https://developer-six-dusky.vercel.app/548/551/SilentXBotz.js"></script>
-
+<script>
+function openMX(){
+  var url = "{{file_url}}";
+  var intent = "intent:" + url + "#Intent;package=com.mxtech.videoplayer.ad;S.title=" + encodeURIComponent("{{file_name}}") + ";end";
+  window.location.href = intent;
+}
+</script>
 </body></html>
