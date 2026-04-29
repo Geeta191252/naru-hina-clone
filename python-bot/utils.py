@@ -298,9 +298,18 @@ def get_size(size):
     return "%.2f %s" % (size, units[i])
 
 def silent_size(size):
-    size = float(size)
-    size_gb = size / (1024 ** 3)
-    return "%.2f GB" % size_gb
+    try:
+        size = float(size or 0)
+    except (TypeError, ValueError):
+        return "0 B"
+    if size <= 0:
+        return "0 B"
+    units = ["B", "KB", "MB", "GB", "TB"]
+    i = 0
+    while size >= 1024.0 and i < len(units) - 1:
+        size /= 1024.0
+        i += 1
+    return "%.2f %s" % (size, units[i])
                         
 def extract_tag(file_name: str) -> str:
     file_name = file_name.lower()
