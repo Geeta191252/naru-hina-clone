@@ -27,9 +27,6 @@ async def render_page(id, secure_hash, src=None):
         template_file = "Lucia/template/req.html"
     else:
         template_file = "Lucia/template/dl.html"
-        async with aiohttp.ClientSession() as s:
-            async with s.get(src) as u:
-                file_size = humanbytes(int(u.headers.get("Content-Length")))
 
     with open(template_file) as f:
         template = jinja2.Template(f.read())
