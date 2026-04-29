@@ -1372,9 +1372,26 @@ async def cb_handler(client: Client, query: CallbackQuery):
             user_id = query.from_user.id
             is_premium_user = await db.has_premium_access(user_id)
             if PAID_STREAM and not is_premium_user:
-                premiumbtn = [[InlineKeyboardButton("𝖡𝗎𝗒 𝖯𝗋𝖾𝗆𝗂𝗎𝗆 ♻️", callback_data='buy')]]
-                await query.answer("<b>📌 ᴛʜɪꜱ ꜰᴇᴀᴛᴜʀᴇ ɪꜱ ᴏɴʟʏ ꜰᴏʀ ᴘʀᴇᴍɪᴜᴍ ᴜꜱᴇʀꜱ</b>", show_alert=True)
-                await query.message.reply("<b>📌 ᴛʜɪꜱ ꜰᴇᴀᴛᴜʀᴇ ɪꜱ ᴏɴʟʏ ꜰᴏʀ ᴘʀᴇᴍɪᴜᴍ ᴜꜱᴇʀꜱ. ʙᴜʏ ᴘʀᴇᴍɪᴜᴍ ᴛᴏ ᴀᴄᴄᴇꜱꜱ ᴛʜɪꜱ ꜰᴇᴀᴛᴜʀᴇ ✅</b>", reply_markup=InlineKeyboardMarkup(premiumbtn))
+                # Generate links for non-premium user with upsell
+                silent_msg = await client.send_cached_media(
+                    chat_id=BIN_CHANNEL,
+                    file_id=file_id,
+                )
+                silent_stream = f"{URL}watch/{str(silent_msg.id)}/{quote_plus(get_name(silent_msg))}?hash={get_hash(silent_msg)}"
+                silent_download = f"{URL}{str(silent_msg.id)}/{quote_plus(get_name(silent_msg))}?hash={get_hash(silent_msg)}"
+                premiumbtn = [
+                    [InlineKeyboardButton("🌟 ʙᴜʏ ᴘʀᴇᴍɪᴜᴍ 🌟", callback_data='buy')],
+                    [InlineKeyboardButton("📺 ꜱᴛʀᴇᴀᴍɪɴɢ ʟɪɴᴋ", url=silent_stream)],
+                    [InlineKeyboardButton("⚡ ꜰᴀꜱᴛ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ⚡", url=silent_download)]
+                ]
+                await query.answer("📌 ᴛʜɪꜱ ꜰᴇᴀᴛᴜʀᴇ ɪꜱ ᴏɴʟʏ ꜰᴏʀ ᴘʀᴇᴍɪᴜᴍ ᴜꜱᴇʀꜱ", show_alert=True)
+                await query.message.reply(
+                    "<b>📌 ᴛʜɪꜱ ꜰᴇᴀᴛᴜʀᴇ ɪꜱ ᴏɴʟʏ ꜰᴏʀ ᴘʀᴇᴍɪᴜᴍ ᴜꜱᴇʀꜱ ✅\n\n"
+                    "🌟 ʙᴜʏ ᴘʀᴇᴍɪᴜᴍ ᴛᴏ ᴜɴʟᴏᴄᴋ ꜰᴜʟʟ ᴀᴄᴄᴇꜱꜱ\n"
+                    "📺 ᴜꜱᴇ ꜱᴛʀᴇᴀᴍɪɴɢ ʟɪɴᴋ ᴛᴏ ᴡᴀᴛᴄʜ ᴏɴʟɪɴᴇ\n"
+                    "⚡ ᴜꜱᴇ ꜰᴀꜱᴛ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ ꜰᴏʀ ꜱᴜᴘᴇʀ ꜰᴀꜱᴛ ᴅᴏᴡɴʟᴏᴀᴅ</b>",
+                    reply_markup=InlineKeyboardMarkup(premiumbtn)
+                )
                 return
             username =  query.from_user.mention 
             silent_msg = await client.send_cached_media(
