@@ -67,7 +67,9 @@ async def start(client, message):
             msg = script.THIRDT_VERIFY_COMPLETE_TEXT
         else:
             msg = script.SECOND_VERIFY_COMPLETE_TEXT if key == "second_time_verified" else script.VERIFY_COMPLETE_TEXT
-        if message.command[1].startswith('sendall'):
+        if USE_MINIAPP:
+            verifiedfiles = f"https://telegram.me/{temp.U_NAME}?start=unlocked_{verify_id}"
+        elif message.command[1].startswith('sendall'):
             verifiedfiles = f"https://telegram.me/{temp.U_NAME}?start=allfiles_{grp_id}_{file_id}"
         else:
             verifiedfiles = f"https://telegram.me/{temp.U_NAME}?start=file_{grp_id}_{file_id}"
@@ -89,6 +91,16 @@ async def start(client, message):
         await asyncio.sleep(300)
         await dlt.delete()
         return         
+    unlocked_data = None
+    if len(m.command) == 2 and m.command[1].startswith('unlocked_'):
+        verify_id = m.command[1].split("_", 1)[1]
+        mini = await db.get_miniapp_token(verify_id)
+        if not mini or not mini.get("verified") or int(mini.get("user_id", 0)) != message.from_user.id:
+            await message.reply("<b>❌ ᴀᴅꜱ ɴᴏᴛ ᴄᴏᴍᴘʟᴇᴛᴇᴅ. ᴘʟᴇᴀꜱᴇ ᴡᴀᴛᴄʜ ᴀʟʟ ᴀᴅꜱ ɪɴ ᴛʜᴇ ᴍɪɴɪ ᴀᴘᴘ.</b>")
+            return
+        grp_id = int(mini.get("grp_id", 0))
+        file_id = mini.get("file_id")
+        unlocked_data = f"allfiles_{grp_id}_{file_id}" if mini.get("kind") == "sendall" else f"file_{grp_id}_{file_id}"
     if message.chat.type in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
         silenxbotz=await message.reply_sticker("CAACAgEAAxkBAAENpaZnl898tVVOj-69IH89gx-8ee-CCAACWwIAAu8vQEXX2jgCrI2F-jYE")
         await asyncio.sleep(5)
@@ -172,7 +184,7 @@ async def start(client, message):
         await auto_filter(client, message) 
         return
             
-    data = message.command[1]
+    data = unlocked_data or message.command[1]
     try:
         pre, grp_id, file_id = data.split('_', 2)
     except:
@@ -233,7 +245,7 @@ async def start(client, message):
         LOGGER.error(f"Error In Fsub :- {e}")
         
     user_id = m.from_user.id
-    if not await db.has_premium_access(user_id):
+    if not unlocked_data and not await db.has_premium_access(user_id):
         try:
             grp_id = int(grp_id)
             user_verified = await db.is_user_verified(user_id)

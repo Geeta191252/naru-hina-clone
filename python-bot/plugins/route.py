@@ -35,14 +35,12 @@ async def miniapp_page(request: web.Request):
         return web.Response(text="<h2 style='font-family:sans-serif;text-align:center;padding:40px'>❌ Link expired or invalid</h2>",
                             content_type='text/html', status=404)
     if info.get("verified"):
-        # Already verified — go straight to bot
+        # Already verified — go straight to the unlocked file flow
         bot_username = (temp.U_NAME or SilentX.username or "").lstrip('@')
-        start_data = f"{info['kind']}_{info['user_id']}_{token}_{info['file_id']}"
-        return web.HTTPFound(f"https://t.me/{bot_username}?start={start_data}")
+        return web.HTTPFound(f"https://t.me/{bot_username}?start=unlocked_{token}")
 
     bot_username = (temp.U_NAME or SilentX.username or "").lstrip('@')
-    start_data = f"{info['kind']}_{info['user_id']}_{token}_{info['file_id']}"
-    redirect_url = f"https://t.me/{bot_username}?start={start_data}"
+    redirect_url = f"https://t.me/{bot_username}?start=unlocked_{token}"
     verify_url = f"{URL.rstrip('/')}/miniapp/verify"
 
     with open("Lucia/template/miniapp.html") as f:
