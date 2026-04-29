@@ -240,18 +240,17 @@ async def start(client, message):
             settings = await get_settings(grp_id)
             is_second_shortener = await db.use_second_shortener(user_id, settings.get('verify_time', TWO_VERIFY_GAP)) 
             is_third_shortener = await db.use_third_shortener(user_id, settings.get('third_verify_time', THREE_VERIFY_GAP))
-            if settings.get("is_verify", IS_VERIFY) and (not user_verified or is_second_shortener or is_third_shortener):                
+            # When Mini App ads mode is on, ALWAYS show ads on every file request (no caching)
+            force_ads = USE_MINIAPP and settings.get("is_verify", IS_VERIFY)
+            if force_ads or (settings.get("is_verify", IS_VERIFY) and (not user_verified or is_second_shortener or is_third_shortener)):                
                 verify_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=7))
                 await db.create_verify_id(user_id, verify_id)
                 temp.VERIFICATIONS[user_id] = grp_id
                 kind = 'sendall' if message.command[1].startswith('allfiles') else 'notcopy'
                 if USE_MINIAPP:
-                    # Monetag Mini App flow (3 ads instead of shortener)
+                    # Monetag Mini App flow (ads inside Telegram WebApp, not browser)
                     await db.create_miniapp_token(verify_id, user_id, grp_id, file_id, kind, MINIAPP_TOKEN_EXPIRY)
-                    miniapp_url = f"{URL.rstrip('/')}/miniapp/{verify_id}"
-                    bot_username = (temp.U_NAME or '').lstrip('@')
-                    # Use t.me startapp link so it opens as Telegram Mini App
-                    verify = f"https://t.me/{bot_username}/watch?startapp={verify_id}" if False else miniapp_url
+                    verify = f"{URL.rstrip('/')}/miniapp/{verify_id}"
                 else:
                     if kind == 'sendall':
                         verify = await get_shortlink(f"https://telegram.me/{temp.U_NAME}?start=sendall_{user_id}_{verify_id}_{file_id}", grp_id, is_second_shortener, is_third_shortener)
@@ -262,8 +261,13 @@ async def start(client, message):
                 else:
                     howtodownload = settings.get('tutorial_2', TUTORIAL_2) if is_second_shortener else settings.get('tutorial', TUTORIAL)
                 verify_btn_text = "🎬 ᴡᴀᴛᴄʜ ᴀᴅꜱ & ɢᴇᴛ ꜰɪʟᴇ 🎬" if USE_MINIAPP else "♻️ ᴄʟɪᴄᴋ ʜᴇʀᴇ ᴛᴏ ᴠᴇʀɪꜰʏ ♻️"
+                if USE_MINIAPP:
+                    # web_app button => opens INSIDE Telegram (no browser/Google)
+                    verify_button = InlineKeyboardButton(text=verify_btn_text, web_app=WebAppInfo(url=verify))
+                else:
+                    verify_button = InlineKeyboardButton(text=verify_btn_text, url=verify)
                 buttons = [[
-                    InlineKeyboardButton(text=verify_btn_text, url=verify)
+                    verify_button
                 ],[
                     InlineKeyboardButton(text="⁉️ ʜᴏᴡ ᴛᴏ ᴠᴇʀɪꜰʏ ⁉️", url=howtodownload)
                 ]]
