@@ -1374,12 +1374,13 @@ async def cb_handler(client: Client, query: CallbackQuery):
             if PAID_STREAM and not is_premium_user:
                 # Premium-only: no streaming/download links for free users
                 premiumbtn = [
-                    [InlineKeyboardButton("🌟 ʙᴜʏ ᴘʀᴇᴍɪᴜᴍ 🌟", callback_data='buy')]
+                    [InlineKeyboardButton("🌟 ʙᴜʏ ᴘʀᴇᴍɪᴜᴍ 🌟", url="https://t.me/Hidden_Xman")]
                 ]
                 await query.answer("📌 ᴛʜɪꜱ ꜰᴇᴀᴛᴜʀᴇ ɪꜱ ᴏɴʟʏ ꜰᴏʀ ᴘʀᴇᴍɪᴜᴍ ᴜꜱᴇʀꜱ", show_alert=True)
                 await query.message.reply(
                     "<b>📌 ᴛʜɪꜱ ꜰᴇᴀᴛᴜʀᴇ ɪꜱ ᴏɴʟʏ ꜰᴏʀ ᴘʀᴇᴍɪᴜᴍ ᴜꜱᴇʀꜱ ✅\n\n"
-                    "🌟 ʙᴜʏ ᴘʀᴇᴍɪᴜᴍ ᴛᴏ ᴜɴʟᴏᴄᴋ ꜱᴛʀᴇᴀᴍɪɴɢ & ꜰᴀꜱᴛ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ</b>",
+                    "🌟 ʙᴜʏ ᴘʀᴇᴍɪᴜᴍ ᴛᴏ ᴜɴʟᴏᴄᴋ ꜱᴛʀᴇᴀᴍɪɴɢ & ꜰᴀꜱᴛ ᴅᴏᴡɴʟᴏᴀᴅɪɴɢ\n\n"
+                    "📞 ᴄᴏɴᴛᴀᴄᴛ : @Hidden_Xman</b>",
                     reply_markup=InlineKeyboardMarkup(premiumbtn)
                 )
                 return
