@@ -1489,7 +1489,6 @@ async def cb_handler(client: Client, query: CallbackQuery):
             )
             btn = [[
                 InlineKeyboardButton('💳 ᴘᴀʏ', callback_data='upi'),
-                InlineKeyboardButton('✅ ᴄᴏɴꜰɪʀᴍ', callback_data='star'),
             ],[
                 InlineKeyboardButton('⬅️ ʙᴀᴄᴋ', callback_data='premium')
             ]]
