@@ -1478,12 +1478,20 @@ async def cb_handler(client: Client, query: CallbackQuery):
 
     elif query.data == "buy":
         try:
-            btn = [[ 
-                InlineKeyboardButton('💳 ᴘᴀʏ ᴠɪᴀ ᴜᴘɪ', callback_data='upi'),
+            premium_features_txt = (
+                "<b>🎫 Click /plan to explore all available plans</b>\n\n"
+                "<blockquote>📒 <b>Premium Features</b> 📒</blockquote>\n\n"
+                "🚀 Direct files with no ads\n"
+                "⚡ Faster response time\n"
+                "⏳ Zero waiting time\n"
+                "📥 Online download & streaming <a href='https://telegram.me/'>T&C apply</a>\n\n"
+                "👤 Click /myplan to check your active plan"
+            )
+            btn = [[
+                InlineKeyboardButton('💳 ᴘᴀʏ', callback_data='upi'),
+                InlineKeyboardButton('✅ ᴄᴏɴꜰɪʀᴍ', callback_data='star'),
             ],[
-                InlineKeyboardButton('⭐ ᴘᴀʏ ᴠɪᴀ ꜱᴛᴀʀ', callback_data='star'),
-            ],[
-                InlineKeyboardButton('⋞ ʙᴀᴄᴋ', callback_data='premium')
+                InlineKeyboardButton('⬅️ ʙᴀᴄᴋ', callback_data='premium')
             ]]
             reply_markup = InlineKeyboardMarkup(btn)
             await client.edit_message_media(
@@ -1492,9 +1500,10 @@ async def cb_handler(client: Client, query: CallbackQuery):
                 InputMediaPhoto(SUBSCRIPTION)
                 ) 
             await query.message.edit_text(
-                text=script.PREMIUM_TEXT,
+                text=premium_features_txt,
                 reply_markup=reply_markup,
-                parse_mode=enums.ParseMode.HTML
+                parse_mode=enums.ParseMode.HTML,
+                disable_web_page_preview=True
             ) 
         except Exception as e:
             LOGGER.error(e)
