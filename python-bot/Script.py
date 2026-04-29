@@ -209,12 +209,15 @@ Nᴀᴍᴇ - {}
 
     PREMIUM_UPI_TEXT = """<b>📱 UPI ID:</b> <code>8504021912@slc</code> <b>(Tap to copy)</b>
 
-⚠️ To confirm your payment, please send the payment screenshot in the bot.
+✅ <b>Payment ke baad ye 2 kaam zaroor karein:</b>
+
+1️⃣ 📸 Payment ka <b>screenshot is bot mein send karein</b> (yahin pe).
+2️⃣ 💬 Same screenshot <b>DM mein admin ko bhi bhejein</b> 👉 @Hidden_Xman
 
 📋 Activation may take some time depending on admin response.
 If your plan is not activated, you can request a refund.
 
-📞 Contact: @Hidden_Xman"""
+⚡ <b>Instant Activation</b> after verification."""
     
     
     BPREMIUM_TXT = """<blockquote>🎁 <b>ᴘʀᴇᴍɪᴜᴍ ꜰᴇᴀᴛᴜʀᴇꜱ</b> :</blockquote>
