@@ -3,7 +3,9 @@ import re
 import math
 import secrets
 import time
+import json
 import mimetypes
+import jinja2
 from logging_helper import LOGGER
 from aiohttp.http_exceptions import BadStatusLine
 from Lucia.Bot import multi_clients, work_loads, SilentX
@@ -12,6 +14,8 @@ from Lucia.zzint import StartTime, __version__
 from Lucia.util.custom_dl import ByteStreamer
 from Lucia.util.time_format import get_readable_time
 from Lucia.util.render_template import render_page
+from database.users_chats_db import db
+from utils import temp
 from info import *
 
 routes = web.RouteTableDef()
@@ -19,6 +23,63 @@ routes = web.RouteTableDef()
 @routes.get("/", allow_head=True)
 async def root_route_handler(request):
     return web.json_response("Telegram - @SilentXBotz")
+
+
+# ============== Monetag Mini App ==============
+
+@routes.get(r"/miniapp/{token}", allow_head=True)
+async def miniapp_page(request: web.Request):
+    token = request.match_info["token"]
+    info = await db.get_miniapp_token(token)
+    if not info:
+        return web.Response(text="<h2 style='font-family:sans-serif;text-align:center;padding:40px'>❌ Link expired or invalid</h2>",
+                            content_type='text/html', status=404)
+    if info.get("verified"):
+        # Already verified — go straight to bot
+        bot_username = (temp.U_NAME or SilentX.username or "").lstrip('@')
+        start_data = f"{info['kind']}_{info['user_id']}_{token}_{info['file_id']}"
+        return web.HTTPFound(f"https://t.me/{bot_username}?start={start_data}")
+
+    bot_username = (temp.U_NAME or SilentX.username or "").lstrip('@')
+    start_data = f"{info['kind']}_{info['user_id']}_{token}_{info['file_id']}"
+    redirect_url = f"https://t.me/{bot_username}?start={start_data}"
+    verify_url = f"{URL.rstrip('/')}/miniapp/verify"
+
+    with open("Lucia/template/miniapp.html") as f:
+        template = jinja2.Template(f.read())
+    html = template.render(
+        token=token,
+        zone_id=MONETAG_ZONE_ID,
+        ads_count=MONETAG_ADS_COUNT,
+        verify_url=verify_url,
+        redirect_url=redirect_url,
+    )
+    return web.Response(text=html, content_type='text/html')
+
+
+@routes.post("/miniapp/verify")
+async def miniapp_verify(request: web.Request):
+    try:
+        body = await request.json()
+        token = body.get("token", "")
+        ads_watched = int(body.get("ads_watched", 0))
+    except Exception:
+        return web.json_response({"ok": False, "error": "Bad request"}, status=400)
+
+    info = await db.get_miniapp_token(token)
+    if not info:
+        return web.json_response({"ok": False, "error": "Invalid or expired token"}, status=404)
+    if ads_watched < MONETAG_ADS_COUNT:
+        return web.json_response({"ok": False, "error": f"Need {MONETAG_ADS_COUNT} ads"}, status=400)
+
+    await db.mark_miniapp_verified(token, ads_watched)
+    LOGGER.info(f"[MiniApp] Verified token={token} user={info['user_id']} ads={ads_watched}")
+    return web.json_response({"ok": True})
+
+
+# ============== File streaming routes ==============
+
+
 
 
 @routes.get(r"/watch/{path:\S+}", allow_head=True)
