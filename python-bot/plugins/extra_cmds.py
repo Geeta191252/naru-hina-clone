@@ -76,7 +76,7 @@ def _encode_file(msg_id: int) -> str:
 # /connect /disconnect /connections
 # ---------------------------------------------------------------------------
 
-@Client.on_message(filters.command("connect"))
+@Client.on_message(filters.command("connect") & filters.user(ADMINS))
 async def connect_cmd(client, message):
     user_id = message.from_user.id if message.from_user else None
     if not user_id:
@@ -113,7 +113,7 @@ async def connect_cmd(client, message):
         await message.reply_text("❌ ᴄᴏᴜʟᴅ ɴᴏᴛ ᴄᴏɴɴᴇᴄᴛ. ᴄʜᴇᴄᴋ ɢʀᴏᴜᴘ ID ᴀɴᴅ ʙᴏᴛ ᴀᴄᴄᴇꜱꜱ.")
 
 
-@Client.on_message(filters.command("disconnect"))
+@Client.on_message(filters.command("disconnect") & filters.user(ADMINS))
 async def disconnect_cmd(client, message):
     user_id = message.from_user.id if message.from_user else None
     if not user_id:
@@ -165,7 +165,7 @@ async def disconnect_cb(client, query):
         pass
 
 
-@Client.on_message(filters.command("connections"))
+@Client.on_message(filters.command("connections") & filters.user(ADMINS))
 async def connections_cmd(client, message):
     user_id = message.from_user.id if message.from_user else None
     if not user_id:
@@ -187,7 +187,7 @@ async def connections_cmd(client, message):
 # /shortlink /shortlink_info /setshorlinkon /setshortlinkoff
 # ---------------------------------------------------------------------------
 
-@Client.on_message(filters.command("shortlink"))
+@Client.on_message(filters.command("shortlink") & filters.user(ADMINS))
 async def shortlink_cmd(client, message):
     grp_id = await _resolve_target_group(client, message)
     if grp_id is None:
@@ -209,7 +209,7 @@ async def shortlink_cmd(client, message):
     )
 
 
-@Client.on_message(filters.command("shortlink_info"))
+@Client.on_message(filters.command("shortlink_info") & filters.user(ADMINS))
 async def shortlink_info_cmd(client, message):
     grp_id = await _resolve_target_group(client, message)
     if grp_id is None:
@@ -226,7 +226,7 @@ async def shortlink_info_cmd(client, message):
     await message.reply_text(text)
 
 
-@Client.on_message(filters.command("setshorlinkon") | filters.command("setshortlinkon"))
+@Client.on_message((filters.command("setshorlinkon") | filters.command("setshortlinkon")) & filters.user(ADMINS))
 async def shortlink_on(client, message):
     grp_id = await _resolve_target_group(client, message)
     if grp_id is None:
@@ -235,7 +235,7 @@ async def shortlink_on(client, message):
     await message.reply_text("✅ ꜱʜᴏʀᴛʟɪɴᴋ ᴠᴇʀɪꜰɪᴄᴀᴛɪᴏɴ ᴛᴜʀɴᴇᴅ <b>ON</b>.")
 
 
-@Client.on_message(filters.command("setshortlinkoff"))
+@Client.on_message(filters.command("setshortlinkoff") & filters.user(ADMINS))
 async def shortlink_off(client, message):
     grp_id = await _resolve_target_group(client, message)
     if grp_id is None:
@@ -248,7 +248,7 @@ async def shortlink_off(client, message):
 # /set_tutorial /remove_tutorial
 # ---------------------------------------------------------------------------
 
-@Client.on_message(filters.command("set_tutorial"))
+@Client.on_message(filters.command("set_tutorial") & filters.user(ADMINS))
 async def set_tutorial_cmd(client, message):
     grp_id = await _resolve_target_group(client, message)
     if grp_id is None:
@@ -264,7 +264,7 @@ async def set_tutorial_cmd(client, message):
     await message.reply_text(f"✅ ᴛᴜᴛᴏʀɪᴀʟ ᴜᴘᴅᴀᴛᴇᴅ:\n{link}")
 
 
-@Client.on_message(filters.command("remove_tutorial"))
+@Client.on_message(filters.command("remove_tutorial") & filters.user(ADMINS))
 async def remove_tutorial_cmd(client, message):
     grp_id = await _resolve_target_group(client, message)
     if grp_id is None:
