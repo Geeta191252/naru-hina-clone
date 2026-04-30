@@ -75,7 +75,7 @@ async def save_file(media):
     file_name = re.sub(r"\s+", " ", file_name).strip()    
     primary_db_size = await check_db_size(db)
     db_change_limit_bytes = DB_CHANGE_LIMIT * 1024 * 1024
-    use_secondary = False
+    db_used = "Primary"
     saveMedia = Media
     exists_in_primary = await Media.count_documents({'file_id': file_id}, limit=1)
     if exists_in_primary:
@@ -85,11 +85,21 @@ async def save_file(media):
     if MULTIPLE_DB and primary_db_size >= db_change_limit_bytes:
         LOGGER.info("Primary Database Is Low On Space. Switching To Secondary DB.")
         saveMedia = Media2
-        use_secondary = True
+        db_used = "Secondary"
         exists_in_secondary = await Media2.count_documents({'file_id': file_id}, limit=1)
         if exists_in_secondary:
             LOGGER.info(f'{file_name} Is Already Saved In Secondary Database!')
             return False, 0
+        # Check secondary db size, if full switch to third
+        secondary_db_size = await check_db_size(db2)
+        if secondary_db_size >= db_change_limit_bytes:
+            LOGGER.info("Secondary Database Is Low On Space. Switching To Third DB.")
+            saveMedia = Media3
+            db_used = "Third"
+            exists_in_third = await Media3.count_documents({'file_id': file_id}, limit=1)
+            if exists_in_third:
+                LOGGER.info(f'{file_name} Is Already Saved In Third Database!')
+                return False, 0
             
     try:
         file = saveMedia(
@@ -108,10 +118,10 @@ async def save_file(media):
         try:
             await file.commit()
         except DuplicateKeyError:
-            LOGGER.error(f'{file_name} Is Already Saved In {"Secondary" if use_secondary else "Primary"} Database')
+            LOGGER.error(f'{file_name} Is Already Saved In {db_used} Database')
             return False, 0
         else:
-            LOGGER.info(f'{file_name} Saved Successfully In {"Secondary" if use_secondary else "Primary"} Database')
+            LOGGER.info(f'{file_name} Saved Successfully In {db_used} Database')
             return True, 1
             
 
