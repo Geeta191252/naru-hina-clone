@@ -156,6 +156,8 @@ async def disconnect_cmd(client, message):
 
 @Client.on_callback_query(filters.regex(r"^disc#(-?\d+)$"))
 async def disconnect_cb(client, query):
+    if query.from_user.id not in ADMINS:
+        return await query.answer("Not allowed.", show_alert=True)
     gid = int(query.matches[0].group(1))
     ok = await db.disconnect_group(gid, query.from_user.id)
     await query.answer("Disconnected" if ok else "Not found", show_alert=True)
