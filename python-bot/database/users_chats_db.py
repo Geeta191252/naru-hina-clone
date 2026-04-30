@@ -433,6 +433,26 @@ class Database:
         else:
             return []
 
+    async def disconnect_group(self, group_id, user_id):
+        user = await self.connection.find_one({'_id': user_id})
+        if user and group_id in user.get("group_ids", []):
+            await self.connection.update_one(
+                {'_id': user_id},
+                {"$pull": {"group_ids": group_id}}
+            )
+            return True
+        return False
+
+    async def count_verified_users(self):
+        try:
+            ist_timezone = pytz.timezone('Asia/Kolkata')
+            now = datetime.datetime.now(tz=ist_timezone)
+            today_start = datetime.datetime(now.year, now.month, now.day, 0, 0, 0, tzinfo=ist_timezone)
+            count = await self.users.count_documents({"last_verified": {"$gte": today_start}})
+            return count
+        except Exception:
+            return 0
+
     # Force Add Feature Methods
     async def enable_forceadd(self, chat_id):
         await self.forceadd.update_one(
