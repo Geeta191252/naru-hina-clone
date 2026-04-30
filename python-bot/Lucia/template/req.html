@@ -36,7 +36,7 @@
             <button class="mx" onclick="openMX()"><img src="https://i.postimg.cc/sx4Msv4T/mx.png" alt="MX">Watch in MX Player</button>
         </div>
         <div class="button-row download-row">
-            <a class="download" href="{{file_url}}" download>
+            <a class="download" href="{{download_url}}" download>
                 <i class="fas fa-download" style="margin-right: 0.5rem;"></i>Download
             </a>
         </div>
@@ -59,13 +59,19 @@
 function openMX(){
   var url = "{{file_url}}";
   var title = encodeURIComponent("{{file_name}}");
-  // Try MX Player Pro first, then fallback to free version
-  var intentPro = "intent:" + url + "#Intent;package=com.mxtech.videoplayer.pro;S.title=" + title + ";type=video/*;end";
-  var intentFree = "intent:" + url + "#Intent;package=com.mxtech.videoplayer.ad;S.title=" + title + ";type=video/*;end";
-  var fallback = "intent:" + url + "#Intent;action=android.intent.action.VIEW;type=video/*;end";
-  // Use generic VIEW intent so any installed player (MX/VLC) opens
-  try { window.location.href = intentFree; } catch(e){}
-  setTimeout(function(){ window.location.href = fallback; }, 800);
+  var a = document.createElement('a');
+  a.href = url;
+  var scheme = (a.protocol || 'https:').replace(':', '');
+  var streamPath = 'intent://' + a.host + a.pathname + a.search;
+  function mxIntent(packageName){
+    return streamPath + '#Intent;scheme=' + scheme + ';action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;type=video/*;S.title=' + title + ';S.filename=' + title + ';package=' + packageName + ';end';
+  }
+  function viewIntent(){
+    return streamPath + '#Intent;scheme=' + scheme + ';action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;type=video/*;S.title=' + title + ';S.filename=' + title + ';end';
+  }
+  try { window.location.href = mxIntent('com.mxtech.videoplayer.ad'); } catch(e){}
+  setTimeout(function(){ window.location.href = mxIntent('com.mxtech.videoplayer.pro'); }, 1200);
+  setTimeout(function(){ window.location.href = viewIntent(); }, 2400);
 }
 function goFullscreen(){
   var v = document.getElementById('player');
