@@ -47,9 +47,10 @@ DATABASE_URI = environ.get('DATABASE_URI', "mongodb+srv://Ludo:RpfS4DiD5eXvt4dz@
 DATABASE_NAME = environ.get('DATABASE_NAME', "mehar")
 COLLECTION_NAME = environ.get('COLLECTION_NAME', 'mehar')
 
-# If MULTIPLE_DB Is True Then Fill DATABASE_URI2 Value Else You Will Get Error.
+# If MULTIPLE_DB Is True Then Fill DATABASE_URI2 And DATABASE_URI3 Value Else You Will Get Error.
 MULTIPLE_DB = is_enabled(os.environ.get('MULTIPLE_DB', "True"), True) # Type True For Turn On MULTIPLE DB FUNTION 
 DATABASE_URI2 = environ.get('DATABASE_URI2', "")
+DATABASE_URI3 = environ.get('DATABASE_URI3', "")
 DB_CHANGE_LIMIT = int(environ.get('DB_CHANGE_LIMIT', "257")) 
 
 GRP_LNK = environ.get('GRP_LNK', 'https://t.me/movie_hd_hub15')
@@ -183,9 +184,12 @@ Bot_cmds = {
 if MULTIPLE_DB == False or not DATABASE_URI2:
     DATABASE_URI = DATABASE_URI
     DATABASE_URI2 = DATABASE_URI
+    DATABASE_URI3 = DATABASE_URI
 else:
     DATABASE_URI = DATABASE_URI
     DATABASE_URI2 = DATABASE_URI2
+    # If 3rd DB Is Not Provided, Fallback To 2nd DB
+    DATABASE_URI3 = DATABASE_URI3 if DATABASE_URI3 else DATABASE_URI2
 
 AUTH_CHANNEL = [int(ch) for ch in AUTH_CHANNEL.strip().split()] if AUTH_CHANNEL else []
 AUTH_REQ_CHANNEL = [int(ch) for ch in AUTH_REQ_CHANNEL.strip().split()] if AUTH_REQ_CHANNEL else []
