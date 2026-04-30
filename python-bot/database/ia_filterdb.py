@@ -22,6 +22,10 @@ client2 = AsyncIOMotorClient(DATABASE_URI2)
 db2 = client2[DATABASE_NAME]
 instance2 = Instance.from_db(db2)
 
+client3 = AsyncIOMotorClient(DATABASE_URI3)
+db3 = client3[DATABASE_NAME]
+instance3 = Instance.from_db(db3)
+
 
 @instance.register
 class Media(Document):
@@ -49,6 +53,19 @@ class Media2(Document):
         indexes = ('$file_name', )
         collection_name = COLLECTION_NAME
 
+@instance3.register
+class Media3(Document):
+    file_id = fields.StrField(attribute='_id')
+    file_ref = fields.StrField(allow_none=True)
+    file_name = fields.StrField(required=True)
+    file_size = fields.IntField(required=True)
+    file_type = fields.StrField(allow_none=True)
+    mime_type = fields.StrField(allow_none=True)
+    caption = fields.StrField(allow_none=True)
+    class Meta:
+        indexes = ('$file_name', )
+        collection_name = COLLECTION_NAME
+
 async def check_db_size(silentdb):
     return (await silentdb.command("dbstats"))['dataSize']
     
@@ -58,7 +75,7 @@ async def save_file(media):
     file_name = re.sub(r"\s+", " ", file_name).strip()    
     primary_db_size = await check_db_size(db)
     db_change_limit_bytes = DB_CHANGE_LIMIT * 1024 * 1024
-    use_secondary = False
+    db_used = "Primary"
     saveMedia = Media
     exists_in_primary = await Media.count_documents({'file_id': file_id}, limit=1)
     if exists_in_primary:
@@ -68,11 +85,21 @@ async def save_file(media):
     if MULTIPLE_DB and primary_db_size >= db_change_limit_bytes:
         LOGGER.info("Primary Database Is Low On Space. Switching To Secondary DB.")
         saveMedia = Media2
-        use_secondary = True
+        db_used = "Secondary"
         exists_in_secondary = await Media2.count_documents({'file_id': file_id}, limit=1)
         if exists_in_secondary:
             LOGGER.info(f'{file_name} Is Already Saved In Secondary Database!')
             return False, 0
+        # Check secondary db size, if full switch to third
+        secondary_db_size = await check_db_size(db2)
+        if secondary_db_size >= db_change_limit_bytes:
+            LOGGER.info("Secondary Database Is Low On Space. Switching To Third DB.")
+            saveMedia = Media3
+            db_used = "Third"
+            exists_in_third = await Media3.count_documents({'file_id': file_id}, limit=1)
+            if exists_in_third:
+                LOGGER.info(f'{file_name} Is Already Saved In Third Database!')
+                return False, 0
             
     try:
         file = saveMedia(
@@ -91,10 +118,10 @@ async def save_file(media):
         try:
             await file.commit()
         except DuplicateKeyError:
-            LOGGER.error(f'{file_name} Is Already Saved In {"Secondary" if use_secondary else "Primary"} Database')
+            LOGGER.error(f'{file_name} Is Already Saved In {db_used} Database')
             return False, 0
         else:
-            LOGGER.info(f'{file_name} Saved Successfully In {"Secondary" if use_secondary else "Primary"} Database')
+            LOGGER.info(f'{file_name} Saved Successfully In {db_used} Database')
             return True, 1
             
 
@@ -129,6 +156,7 @@ async def get_search_results(chat_id, query, file_type=None, max_results=10, off
     total_results = await Media.count_documents(filter)
     if MULTIPLE_DB:
         total_results += await Media2.count_documents(filter)
+        total_results += await Media3.count_documents(filter)
     if max_results % 2 != 0:
         logger.info(f"Since max_results Is An Odd Number ({max_results}), Bot Will Use {max_results + 1} As max_results To Make It Even.")
         max_results += 1
@@ -139,6 +167,11 @@ async def get_search_results(chat_id, query, file_type=None, max_results=10, off
         cursor2 = Media2.find(filter).sort('$natural', -1).skip(offset).limit(remaining_results)
         files2 = await cursor2.to_list(length=remaining_results)
         files = files1 + files2
+        remaining_results = max_results - len(files)
+        if remaining_results > 0:
+            cursor3 = Media3.find(filter).sort('$natural', -1).skip(offset).limit(remaining_results)
+            files3 = await cursor3.to_list(length=remaining_results)
+            files = files + files3
     else:
         files = files1
     next_offset = offset + len(files)
@@ -169,7 +202,9 @@ async def get_bad_files(query, file_type=None):
     if MULTIPLE_DB:
         cursor2 = Media2.find(filter).sort('$natural', -1)
         files2 = await cursor2.to_list(length=(await Media2.count_documents(filter)))
-        files = files1 + files2
+        cursor3 = Media3.find(filter).sort('$natural', -1)
+        files3 = await cursor3.to_list(length=(await Media3.count_documents(filter)))
+        files = files1 + files2 + files3
     else:
         files = files1
     total_results = len(files)
@@ -183,6 +218,9 @@ async def get_file_details(query):
     if not filedetails:
         cursor2 = Media2.find(filter)
         filedetails = await cursor2.to_list(length=1)
+    if not filedetails:
+        cursor3 = Media3.find(filter)
+        filedetails = await cursor3.to_list(length=1)
     return filedetails
 
 
