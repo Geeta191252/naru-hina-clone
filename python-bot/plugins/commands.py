@@ -589,7 +589,7 @@ async def connect_group(client, message):
             await message.reply_text("Invalid group ID or error occurred.")
 
 @Client.on_message((filters.command(["request", "Request"]) | filters.regex("#request") | filters.regex("#Request")) & filters.group)
-async def requests(bot, message):
+async def requests(client, message):
     bot_id = client.me.id
     maintenance_mode = await db.get_maintenance_status(bot_id)
     if maintenance_mode and message.from_user.id not in ADMINS:
@@ -783,8 +783,8 @@ async def topsearch_callback(client, callback_query):
     await callback_query.message.reply_text("<b>Tᴏᴘ Sᴇᴀʀᴄʜᴇs Oғ Tʜᴇ Dᴀʏ 👇</b>", reply_markup=reply_markup)
     await callback_query.answer()
 
-@Client.on_message(filters.command('top_search'))
-async def top(_, message):
+@Client.on_message(filters.command(['top_search', 'top']))
+async def top(client, message):
     bot_id = client.me.id
     maintenance_mode = await db.get_maintenance_status(bot_id)
     if maintenance_mode and message.from_user.id not in ADMINS:
