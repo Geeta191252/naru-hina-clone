@@ -156,6 +156,7 @@ async def get_search_results(chat_id, query, file_type=None, max_results=10, off
     total_results = await Media.count_documents(filter)
     if MULTIPLE_DB:
         total_results += await Media2.count_documents(filter)
+        total_results += await Media3.count_documents(filter)
     if max_results % 2 != 0:
         logger.info(f"Since max_results Is An Odd Number ({max_results}), Bot Will Use {max_results + 1} As max_results To Make It Even.")
         max_results += 1
@@ -166,6 +167,11 @@ async def get_search_results(chat_id, query, file_type=None, max_results=10, off
         cursor2 = Media2.find(filter).sort('$natural', -1).skip(offset).limit(remaining_results)
         files2 = await cursor2.to_list(length=remaining_results)
         files = files1 + files2
+        remaining_results = max_results - len(files)
+        if remaining_results > 0:
+            cursor3 = Media3.find(filter).sort('$natural', -1).skip(offset).limit(remaining_results)
+            files3 = await cursor3.to_list(length=remaining_results)
+            files = files + files3
     else:
         files = files1
     next_offset = offset + len(files)
@@ -196,7 +202,9 @@ async def get_bad_files(query, file_type=None):
     if MULTIPLE_DB:
         cursor2 = Media2.find(filter).sort('$natural', -1)
         files2 = await cursor2.to_list(length=(await Media2.count_documents(filter)))
-        files = files1 + files2
+        cursor3 = Media3.find(filter).sort('$natural', -1)
+        files3 = await cursor3.to_list(length=(await Media3.count_documents(filter)))
+        files = files1 + files2 + files3
     else:
         files = files1
     total_results = len(files)
@@ -210,6 +218,9 @@ async def get_file_details(query):
     if not filedetails:
         cursor2 = Media2.find(filter)
         filedetails = await cursor2.to_list(length=1)
+    if not filedetails:
+        cursor3 = Media3.find(filter)
+        filedetails = await cursor3.to_list(length=1)
     return filedetails
 
 
