@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Watch Ads to Unlock File</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<!-- Monetag SDK (single zone supports all 3 formats: Rewarded Interstitial, Rewarded Popup, In-App Interstitial) -->
+<!-- Monetag SDK -->
 <script src='//libtl.com/sdk.js' data-zone='{{zone_id}}' data-sdk='show_{{zone_id}}'></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -91,56 +91,20 @@
     return await fn();
   }
 
-  // Format 2: Rewarded Popup
-  async function showPopup() {
-    const fn = getShowFn();
-    if (typeof fn !== 'function') throw new Error('Ad SDK not loaded.');
-    return await fn('pop');
-  }
-
-  // Format 3: In-App Interstitial (auto-shown by SDK based on settings)
-  function triggerInApp() {
-    const fn = getShowFn();
-    if (typeof fn !== 'function') return;
-    try {
-      fn({
-        type: 'inApp',
-        inAppSettings: {
-          frequency: 2,
-          capping: 0.1,
-          interval: 30,
-          timeout: 5,
-          everyPage: false
-        }
-      });
-    } catch (e) { console.warn('inApp failed', e); }
-  }
-
   async function handleClick() {
     btn.disabled = true;
     err.textContent = '';
 
-    // Trigger In-App Interstitial in background (auto-managed by SDK)
-    triggerInApp();
-
     title.textContent = 'Watching ads...';
-    subtitle.innerHTML = 'Please complete both ads to unlock your file.';
-
-    // Sequence: Ad 1 (Interstitial) → finish → Ad 2 (Popup) → finish
-    const adSequence = [
-      { name: 'Ad 1', fn: showInterstitial },
-      { name: 'Ad 2', fn: showPopup },
-    ];
+    subtitle.innerHTML = 'Please complete ads one by one to unlock your file.';
 
     try {
-      for (let i = 0; i < adSequence.length; i++) {
-        const { name, fn } = adSequence[i];
-        setBtn('<span class="loader"></span> Watching ' + name + ' of ' + TOTAL + '...', true);
-        await fn();              // wait for this ad to fully complete
-        current = i + 1;          // mark done
+      for (let i = 0; i < TOTAL; i++) {
+        setBtn('<span class="loader"></span> Watching Ad ' + (i + 1) + ' of ' + TOTAL + '...', true);
+        await showInterstitial();
+        current = i + 1;
         updateDots();
-        // tiny gap so SDK can clean up before next ad starts on same page
-        await new Promise(r => setTimeout(r, 400));
+        if (current < TOTAL) await new Promise(r => setTimeout(r, 600));
       }
     } catch (e) {
       console.error(e);
