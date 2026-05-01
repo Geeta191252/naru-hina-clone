@@ -123,30 +123,31 @@
     // Trigger In-App Interstitial in background (auto-managed by SDK)
     triggerInApp();
 
-    // Run Interstitial + Popup back-to-back as the reward sequence
-    const sequence = [
-      { name: 'Rewarded Interstitial', fn: showInterstitial },
-      { name: 'Rewarded Popup',        fn: showPopup },
-    ];
+    setBtn('<span class="loader"></span> Loading 2 ads...', true);
+    title.textContent = 'Watching ads...';
+    subtitle.innerHTML = 'Please wait, ads are loading in parallel.';
 
-    while (current < TOTAL) {
-      const adNumber = current + 1;
-      const step = sequence[current % sequence.length];
-      setBtn('<span class="loader"></span> Ad ' + adNumber + ' of ' + TOTAL + '...', true);
-      title.textContent = 'Watching ad ' + adNumber + ' of ' + TOTAL;
-      subtitle.innerHTML = 'Please wait, the next ad will start automatically.';
-      try {
-        await step.fn();
-        current++;
-        updateDots();
-        await new Promise(r => setTimeout(r, 200));
-      } catch (e) {
-        console.error(e);
-        err.textContent = e.message || 'Ad failed. Please try again.';
-        setBtn('▶ Retry Ad ' + (current + 1));
-        btn.disabled = false;
-        return;
+    try {
+      // Fire 2 ads in parallel on the same page (Interstitial + Popup)
+      const results = await Promise.allSettled([
+        showInterstitial(),
+        showPopup(),
+      ]);
+
+      const ok = results.filter(r => r.status === 'fulfilled').length;
+      current = Math.min(TOTAL, ok);
+      updateDots();
+
+      if (ok < TOTAL) {
+        const firstErr = results.find(r => r.status === 'rejected');
+        throw new Error(firstErr?.reason?.message || 'One or more ads failed.');
       }
+    } catch (e) {
+      console.error(e);
+      err.textContent = e.message || 'Ad failed. Please try again.';
+      setBtn('🔄 Retry Ads');
+      btn.disabled = false;
+      return;
     }
     await finish();
   }
