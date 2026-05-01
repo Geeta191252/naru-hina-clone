@@ -3,7 +3,7 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, CallbackQ
 from pyrogram.errors.exceptions.bad_request_400 import MessageTooLong, PeerIdInvalid
 from info import *
 from database.users_chats_db import db, db2
-from database.ia_filterdb import Media, Media2, db as db_stats, db2 as db2_stats
+from database.ia_filterdb import Media, Media2, Media3, db as db_stats, db2 as db2_stats, db3 as db3_stats
 from utils import get_size, temp, get_settings, get_readable_time
 from Script import script
 from pyrogram.errors import ChatAdminRequired
@@ -161,8 +161,8 @@ async def re_enable_chat(bot, message):
 
 @Client.on_message(filters.command('stats') & filters.user(ADMINS))
 async def get_stats(bot, message):
+    SilentXBotz = await message.reply('ᴀᴄᴄᴇꜱꜱɪɴɢ ꜱᴛᴀᴛᴜꜱ ᴅᴇᴛᴀɪʟꜱ...')
     try:
-        SilentXBotz = await message.reply('ᴀᴄᴄᴇꜱꜱɪɴɢ ꜱᴛᴀᴛᴜꜱ ᴅᴇᴛᴀɪʟꜱ...')
         total_users = await db.total_users_count()
         totl_chats = await db.total_chat_count()
         premium = await db.all_premium_users()
@@ -182,12 +182,23 @@ async def get_stats(bot, message):
         db2stats = await db2_stats.command("dbStats")
         db2_size = db2stats['dataSize']
         free2 = DB_SIZE - db2_size
+        file3 = await Media3.count_documents()
+        db3stats = await db3_stats.command("dbStats")
+        db3_size = db3stats['dataSize']
+        free3 = DB_SIZE - db3_size
         await SilentXBotz.edit(script.MULTI_STATUS_TXT.format(
             total_users, totl_chats, premium, file1, get_size(db_size), get_size(free),
-            file2, get_size(db2_size), get_size(free2), uptime, ram, cpu, (int(file1) + int(file2))
+            file2, get_size(db2_size), get_size(free2),
+            file3, get_size(db3_size), get_size(free3),
+            uptime, ram, cpu, (int(file1) + int(file2) + int(file3))
         ))
     except Exception as e:
-        LOGGER.error(e)
+        LOGGER.error(f"Stats error: {e}")
+        try:
+            await SilentXBotz.edit(f"<b>❌ Stats Error:</b>\n<code>{e}</code>")
+        except:
+            pass
+
         
 
 @Client.on_message(filters.command('invite') & filters.user(ADMINS))

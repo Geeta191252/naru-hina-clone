@@ -36,13 +36,19 @@ class script(object):
 ├⋟ ꜱɪᴢᴇ ⋟ <code>{}</code>
 ├⋟ ꜰʀᴇᴇ ⋟ <code>{}</code>
 │
+<b><blockquote>├────[ ᴅᴀᴛᴀʙᴀsᴇ 3 ]────⍟</blockquote></b>   
+│
+├⋟ ᴀʟʟ ꜰɪʟᴇs ⋟ <code>{}</code>
+├⋟ ꜱɪᴢᴇ ⋟ <code>{}</code>
+├⋟ ꜰʀᴇᴇ ⋟ <code>{}</code>
+│
 <b><blockquote>├────[ 🔥 ʙᴏᴛ ᴅᴇᴛᴀɪʟs 🔥 ]────⍟</blockquote></b>   
 │
 ├⋟ ᴜᴘᴛɪᴍᴇ ⋟ {}
 ├⋟ ʀᴀᴍ ⋟ <code>{}%</code>
 ├⋟ ᴄᴘᴜ ⋟ <code>{}%</code>   
 │
-├⋟ ʙᴏᴛʜ ᴅʙ ꜰɪʟᴇ'ꜱ: <code>{}</code>
+├⋟ ᴀʟʟ ᴅʙ ꜰɪʟᴇ'ꜱ: <code>{}</code>
 │
 <b><blockquote>╰─────────────────────⍟</blockquote></b>"""
 
