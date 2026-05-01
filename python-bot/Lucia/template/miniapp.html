@@ -7,6 +7,9 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <!-- Monetag Rewarded Interstitial SDK -->
 <script src='//libtl.com/sdk.js' data-zone='{{zone_id}}' data-sdk='show_{{zone_id}}'></script>
+<!-- Extra In-Page Push / Banner zones (loaded in parallel so multiple ads appear together) -->
+<script src='//libtl.com/sdk.js' data-zone='{{zone_id}}' data-sdk='show_{{zone_id}}_b'></script>
+<script src='//libtl.com/sdk.js' data-zone='{{zone_id}}' data-sdk='show_{{zone_id}}_c'></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--tg-theme-bg-color,#0f172a);color:var(--tg-theme-text-color,#fff);overflow:hidden}
@@ -84,11 +87,20 @@
     err.textContent = '';
     const fn = window['show_' + ZONE_ID];
     if (typeof fn !== 'function') {
-      throw new Error('Ad SDK not loaded. Check your internet & try again.');
+      throw new Error('Ad SDK not loaded. Please refresh and try again.');
     }
-    // Use 'pop' type = Rewarded Popup (same-page overlay, no new tab)
-    // This keeps user on the same screen between ads
-    return await fn('pop');
+    // Default rewarded interstitial — most reliable across all Monetag zone types.
+    return await fn();
+  }
+
+  // Fire-and-forget extra ads in parallel so user sees multiple ads on the page
+  function fireExtraAds() {
+    try {
+      const b = window['show_' + ZONE_ID + '_b'];
+      const c = window['show_' + ZONE_ID + '_c'];
+      if (typeof b === 'function') { b().catch(()=>{}); }
+      if (typeof c === 'function') { setTimeout(()=>c().catch(()=>{}), 50); }
+    } catch(e) { console.warn('extra ads failed', e); }
   }
 
   async function handleClick() {
@@ -101,11 +113,12 @@
       title.textContent = 'Watching ad ' + adNumber + ' of ' + TOTAL;
       subtitle.innerHTML = 'Please wait, the next ad will start automatically.';
       try {
+        // Fire main rewarded + extra parallel ads together
+        if (current === 0) fireExtraAds();
         await showAd();
         current++;
         updateDots();
-        // Minimal gap so SDK can prepare next ad seamlessly
-        await new Promise(r => setTimeout(r, 150));
+        await new Promise(r => setTimeout(r, 200));
       } catch (e) {
         console.error(e);
         err.textContent = e.message || 'Ad failed to load. Please try again.';
