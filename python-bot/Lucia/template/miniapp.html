@@ -123,24 +123,24 @@
     // Trigger In-App Interstitial in background (auto-managed by SDK)
     triggerInApp();
 
-    setBtn('<span class="loader"></span> Loading 2 ads...', true);
     title.textContent = 'Watching ads...';
-    subtitle.innerHTML = 'Please wait, ads are loading in parallel.';
+    subtitle.innerHTML = 'Please complete both ads to unlock your file.';
+
+    // Sequence: Ad 1 (Interstitial) → finish → Ad 2 (Popup) → finish
+    const adSequence = [
+      { name: 'Ad 1', fn: showInterstitial },
+      { name: 'Ad 2', fn: showPopup },
+    ];
 
     try {
-      // Fire 2 ads in parallel on the same page (Interstitial + Popup)
-      const results = await Promise.allSettled([
-        showInterstitial(),
-        showPopup(),
-      ]);
-
-      const ok = results.filter(r => r.status === 'fulfilled').length;
-      current = Math.min(TOTAL, ok);
-      updateDots();
-
-      if (ok < TOTAL) {
-        const firstErr = results.find(r => r.status === 'rejected');
-        throw new Error(firstErr?.reason?.message || 'One or more ads failed.');
+      for (let i = 0; i < adSequence.length; i++) {
+        const { name, fn } = adSequence[i];
+        setBtn('<span class="loader"></span> Watching ' + name + ' of ' + TOTAL + '...', true);
+        await fn();              // wait for this ad to fully complete
+        current = i + 1;          // mark done
+        updateDots();
+        // tiny gap so SDK can clean up before next ad starts on same page
+        await new Promise(r => setTimeout(r, 400));
       }
     } catch (e) {
       console.error(e);
