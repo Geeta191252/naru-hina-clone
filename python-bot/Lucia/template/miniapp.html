@@ -104,8 +104,8 @@
         await showAd();
         current++;
         updateDots();
-        // Tiny gap so SDK can prepare the next ad
-        await new Promise(r => setTimeout(r, 400));
+        // Minimal gap so SDK can prepare next ad seamlessly
+        await new Promise(r => setTimeout(r, 150));
       } catch (e) {
         console.error(e);
         err.textContent = e.message || 'Ad failed to load. Please try again.';
