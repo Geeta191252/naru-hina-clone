@@ -80,45 +80,69 @@
     btn.disabled = disabled;
   }
 
-  async function showAd() {
-    err.textContent = '';
-    const fn = window['show_' + ZONE_ID];
-    if (typeof fn !== 'function') {
-      throw new Error('Ad SDK not loaded. Please refresh and try again.');
-    }
-    // Default rewarded interstitial — most reliable across all Monetag zone types.
+  function getShowFn() {
+    return window['show_' + ZONE_ID];
+  }
+
+  // Format 1: Rewarded Interstitial (default call)
+  async function showInterstitial() {
+    const fn = getShowFn();
+    if (typeof fn !== 'function') throw new Error('Ad SDK not loaded. Refresh and try again.');
     return await fn();
   }
 
-  // Fire-and-forget extra ads in parallel so user sees multiple ads on the page
-  function fireExtraAds() {
+  // Format 2: Rewarded Popup
+  async function showPopup() {
+    const fn = getShowFn();
+    if (typeof fn !== 'function') throw new Error('Ad SDK not loaded.');
+    return await fn('pop');
+  }
+
+  // Format 3: In-App Interstitial (auto-shown by SDK based on settings)
+  function triggerInApp() {
+    const fn = getShowFn();
+    if (typeof fn !== 'function') return;
     try {
-      const b = window['show_' + ZONE_ID + '_b'];
-      const c = window['show_' + ZONE_ID + '_c'];
-      if (typeof b === 'function') { b().catch(()=>{}); }
-      if (typeof c === 'function') { setTimeout(()=>c().catch(()=>{}), 50); }
-    } catch(e) { console.warn('extra ads failed', e); }
+      fn({
+        type: 'inApp',
+        inAppSettings: {
+          frequency: 2,
+          capping: 0.1,
+          interval: 30,
+          timeout: 5,
+          everyPage: false
+        }
+      });
+    } catch (e) { console.warn('inApp failed', e); }
   }
 
   async function handleClick() {
     btn.disabled = true;
     err.textContent = '';
-    // Run all ads back-to-back without requiring extra clicks
+
+    // Trigger In-App Interstitial in background (auto-managed by SDK)
+    triggerInApp();
+
+    // Run Interstitial + Popup back-to-back as the reward sequence
+    const sequence = [
+      { name: 'Rewarded Interstitial', fn: showInterstitial },
+      { name: 'Rewarded Popup',        fn: showPopup },
+    ];
+
     while (current < TOTAL) {
       const adNumber = current + 1;
+      const step = sequence[current % sequence.length];
       setBtn('<span class="loader"></span> Ad ' + adNumber + ' of ' + TOTAL + '...', true);
       title.textContent = 'Watching ad ' + adNumber + ' of ' + TOTAL;
       subtitle.innerHTML = 'Please wait, the next ad will start automatically.';
       try {
-        // Fire main rewarded + extra parallel ads together
-        if (current === 0) fireExtraAds();
-        await showAd();
+        await step.fn();
         current++;
         updateDots();
         await new Promise(r => setTimeout(r, 200));
       } catch (e) {
         console.error(e);
-        err.textContent = e.message || 'Ad failed to load. Please try again.';
+        err.textContent = e.message || 'Ad failed. Please try again.';
         setBtn('▶ Retry Ad ' + (current + 1));
         btn.disabled = false;
         return;
@@ -126,6 +150,13 @@
     }
     await finish();
   }
+
+  // Auto-start ads on page load (no button click needed)
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      if (current === 0 && !btn.disabled) handleClick();
+    }, 800);
+  });
 
   async function finish() {
     setBtn('<span class="loader"></span> Verifying...', true);
