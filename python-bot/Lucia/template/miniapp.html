@@ -86,8 +86,9 @@
     if (typeof fn !== 'function') {
       throw new Error('Ad SDK not loaded. Check your internet & try again.');
     }
-    // Rewarded Interstitial — promise resolves on ad complete
-    return await fn();
+    // Use 'pop' type = Rewarded Popup (same-page overlay, no new tab)
+    // This keeps user on the same screen between ads
+    return await fn('pop');
   }
 
   async function handleClick() {
