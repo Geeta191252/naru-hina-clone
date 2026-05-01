@@ -91,23 +91,29 @@
   }
 
   async function handleClick() {
-    setBtn('<span class="loader"></span> Loading ad...', true);
-    try {
-      await showAd();
-      current++;
-      updateDots();
-      if (current >= TOTAL) {
-        await finish();
-      } else {
-        setBtn('▶ Watch Ad ' + (current + 1));
-        title.textContent = 'Great! ' + (TOTAL - current) + ' more to go';
-        subtitle.innerHTML = 'Tap the button to watch the next ad.';
+    btn.disabled = true;
+    err.textContent = '';
+    // Run all ads back-to-back without requiring extra clicks
+    while (current < TOTAL) {
+      const adNumber = current + 1;
+      setBtn('<span class="loader"></span> Ad ' + adNumber + ' of ' + TOTAL + '...', true);
+      title.textContent = 'Watching ad ' + adNumber + ' of ' + TOTAL;
+      subtitle.innerHTML = 'Please wait, the next ad will start automatically.';
+      try {
+        await showAd();
+        current++;
+        updateDots();
+        // Tiny gap so SDK can prepare the next ad
+        await new Promise(r => setTimeout(r, 400));
+      } catch (e) {
+        console.error(e);
+        err.textContent = e.message || 'Ad failed to load. Please try again.';
+        setBtn('▶ Retry Ad ' + (current + 1));
+        btn.disabled = false;
+        return;
       }
-    } catch (e) {
-      console.error(e);
-      err.textContent = e.message || 'Ad failed to load. Please try again.';
-      setBtn('▶ Retry Ad ' + (current + 1));
     }
+    await finish();
   }
 
   async function finish() {
