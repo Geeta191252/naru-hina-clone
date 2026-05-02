@@ -68,7 +68,64 @@ class Media3(Document):
 
 async def check_db_size(silentdb):
     return (await silentdb.command("dbstats"))['dataSize']
-    
+
+
+# ===== AUTO CLEANUP: Delete oldest files when DB is near full =====
+# Atlas free tier = 512 MB. Cleanup trigger threshold (default 480 MB)
+DB_CLEANUP_THRESHOLD_MB = int(environ.get('DB_CLEANUP_THRESHOLD_MB', '480')) if (environ := __import__('os').environ) else 480
+DB_CLEANUP_BATCH = int(__import__('os').environ.get('DB_CLEANUP_BATCH', '500'))  # delete 500 oldest at a time
+
+async def _cleanup_collection(silentdb, collection_name, label):
+    """Delete oldest documents from a collection until size drops below threshold."""
+    try:
+        threshold_bytes = DB_CLEANUP_THRESHOLD_MB * 1024 * 1024
+        size = await check_db_size(silentdb)
+        if size < threshold_bytes:
+            return 0
+        LOGGER.warning(f"[AUTO-CLEANUP] {label} DB size {size/1024/1024:.1f} MB >= {DB_CLEANUP_THRESHOLD_MB} MB. Cleaning oldest files...")
+        coll = silentdb[collection_name]
+        total_deleted = 0
+        # loop until under threshold or nothing left
+        for _ in range(20):  # safety cap: max 10k files per run
+            # Oldest = lowest _id (ObjectId is time-ordered, but our _id is file_id string).
+            # Use $natural order ascending = insertion order.
+            cursor = coll.find({}, {'_id': 1}).sort('$natural', 1).limit(DB_CLEANUP_BATCH)
+            ids = [doc['_id'] async for doc in cursor]
+            if not ids:
+                break
+            res = await coll.delete_many({'_id': {'$in': ids}})
+            total_deleted += res.deleted_count
+            new_size = await check_db_size(silentdb)
+            LOGGER.warning(f"[AUTO-CLEANUP] {label}: deleted {res.deleted_count} files. New size: {new_size/1024/1024:.1f} MB")
+            if new_size < threshold_bytes:
+                break
+        # try compact to reclaim space (best-effort, may not work on shared tiers)
+        try:
+            await silentdb.command({'compact': collection_name})
+        except Exception:
+            pass
+        LOGGER.warning(f"[AUTO-CLEANUP] {label}: total deleted = {total_deleted}")
+        return total_deleted
+    except Exception as e:
+        LOGGER.error(f"[AUTO-CLEANUP] {label} failed: {e}")
+        return 0
+
+async def auto_cleanup_dbs():
+    """Run cleanup on all 3 DBs if needed. Safe to call repeatedly."""
+    deleted = 0
+    deleted += await _cleanup_collection(db, COLLECTION_NAME, "Primary")
+    if MULTIPLE_DB:
+        try:
+            deleted += await _cleanup_collection(db2, COLLECTION_NAME, "Secondary")
+        except Exception as e:
+            LOGGER.error(f"[AUTO-CLEANUP] Secondary error: {e}")
+        try:
+            deleted += await _cleanup_collection(db3, COLLECTION_NAME, "Third")
+        except Exception as e:
+            LOGGER.error(f"[AUTO-CLEANUP] Third error: {e}")
+    return deleted
+
+
 async def save_file(media):
     file_id, file_ref = unpack_new_file_id(media.file_id)
     file_name = re.sub(r"[_\-\.#+$%^&*()!~`,;:\"'?/<>\[\]{}=|\\]", " ", str(media.file_name))
