@@ -159,6 +159,30 @@ async def re_enable_chat(bot, message):
     temp.BANNED_CHATS.remove(int(chat_))
     await message.reply("Chat Successfully re-enabled")
 
+async def _get_db_usage(db_handle):
+    """Return (files_count, used_bytes, free_bytes, quota_bytes) for a DB.
+    Uses storageSize + indexSize because that is what MongoDB Atlas free tier
+    (512 MB) actually counts against the quota — not dataSize.
+    """
+    import os as _os
+    quota_mb = int(_os.environ.get('DB_QUOTA_MB', '512'))
+    quota_bytes = quota_mb * 1024 * 1024
+    try:
+        stats = await db_handle.command("dbStats")
+        # Atlas counts storageSize (on-disk) + indexSize against quota
+        storage = int(stats.get('storageSize', 0) or 0)
+        index_size = int(stats.get('indexSize', 0) or 0)
+        used = storage + index_size
+        # safety: if storageSize unavailable fall back to dataSize
+        if used == 0:
+            used = int(stats.get('dataSize', 0) or 0)
+        free = max(quota_bytes - used, 0)
+        return used, free, quota_bytes
+    except Exception as e:
+        LOGGER.error(f"_get_db_usage error: {e}")
+        return 0, quota_bytes, quota_bytes
+
+
 @Client.on_message(filters.command('stats') & filters.user(ADMINS))
 async def get_stats(bot, message):
     SilentXBotz = await message.reply('ᴀᴄᴄᴇꜱꜱɪɴɢ ꜱᴛᴀᴛᴜꜱ ᴅᴇᴛᴀɪʟꜱ...')
@@ -166,26 +190,41 @@ async def get_stats(bot, message):
         total_users = await db.total_users_count()
         totl_chats = await db.total_chat_count()
         premium = await db.all_premium_users()
-        file1 = await Media.count_documents()
-        DB_SIZE = 512 * 1024 * 1024
-        dbstats = await db_stats.command("dbStats")
-        db_size = dbstats['dataSize']
-        free = DB_SIZE - db_size
+
+        # ----- Primary DB -----
+        try:
+            file1 = await Media.count_documents()
+        except Exception as e:
+            LOGGER.error(f"Media count error: {e}")
+            file1 = 0
+        db_size, free, _quota = await _get_db_usage(db_stats)
+
         uptime = get_readable_time(time() - botStartTime)
         ram = psutil.virtual_memory().percent
         cpu = psutil.cpu_percent()
+
         if MULTIPLE_DB == False:
             await SilentXBotz.edit(script.STATUS_TXT.format(
-                total_users, totl_chats, premium, file1, get_size(db_size), get_size(free), uptime, ram, cpu))                                               
+                total_users, totl_chats, premium, file1,
+                get_size(db_size), get_size(free), uptime, ram, cpu))
             return
-        file2 = await Media2.count_documents()
-        db2stats = await db2_stats.command("dbStats")
-        db2_size = db2stats['dataSize']
-        free2 = DB_SIZE - db2_size
-        file3 = await Media3.count_documents()
-        db3stats = await db3_stats.command("dbStats")
-        db3_size = db3stats['dataSize']
-        free3 = DB_SIZE - db3_size
+
+        # ----- Secondary DB -----
+        try:
+            file2 = await Media2.count_documents()
+        except Exception as e:
+            LOGGER.error(f"Media2 count error: {e}")
+            file2 = 0
+        db2_size, free2, _q2 = await _get_db_usage(db2_stats)
+
+        # ----- Third DB -----
+        try:
+            file3 = await Media3.count_documents()
+        except Exception as e:
+            LOGGER.error(f"Media3 count error: {e}")
+            file3 = 0
+        db3_size, free3, _q3 = await _get_db_usage(db3_stats)
+
         await SilentXBotz.edit(script.MULTI_STATUS_TXT.format(
             total_users, totl_chats, premium, file1, get_size(db_size), get_size(free),
             file2, get_size(db2_size), get_size(free2),
