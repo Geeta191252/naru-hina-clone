@@ -170,24 +170,33 @@ def _db_quota_bytes():
 
 
 async def _get_db_usage(db_handle):
-    """Return the same logical Data Size shown for this DB in MongoDB Atlas."""
+    """Sum dataSize across ALL user databases in this Mongo cluster/account.
+    Matches the per-account storage shown in MongoDB Atlas dashboard."""
     quota_bytes = _db_quota_bytes()
+    used = 0
     try:
-        stats = await db_handle.command("dbStats")
-        used = int(stats.get('dataSize', 0) or 0)
-        storage_size = int(stats.get('storageSize', 0) or 0)
-        index_size = int(stats.get('indexSize', 0) or 0)
-        total_size = int(stats.get('totalSize', 0) or 0) or (storage_size + index_size)
-
+        client = db_handle.client
+        try:
+            db_names = await client.list_database_names()
+        except Exception as e:
+            LOGGER.error(f"list_database_names error: {e}")
+            db_names = [db_handle.name]
+        for name in db_names:
+            if not _is_user_database(name):
+                continue
+            try:
+                stats = await client[name].command("dbStats")
+                size = int(stats.get('dataSize', 0) or 0)
+                used += size
+                LOGGER.info(f"[STATS] cluster_db={name} dataSize={size}")
+            except Exception as e:
+                LOGGER.error(f"dbStats error for {name}: {e}")
         free = max(quota_bytes - used, 0)
-        LOGGER.info(
-            f"[STATS] database={db_handle.name} dataSize={used} "
-            f"totalSize={total_size} storage={storage_size} index={index_size}"
-        )
+        LOGGER.info(f"[STATS] cluster_total_used={used} quota={quota_bytes}")
         return used, free, quota_bytes
     except Exception as e:
-        LOGGER.error(f"_get_db_usage dbStats error: {e}")
-        return 0, quota_bytes, quota_bytes
+        LOGGER.error(f"_get_db_usage error: {e}")
+        return used, max(quota_bytes - used, 0), quota_bytes
 
 
 def _format_quota_usage(used, quota):
