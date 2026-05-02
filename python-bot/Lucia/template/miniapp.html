@@ -43,28 +43,12 @@
   const REDIRECT_URL = "{{redirect_url}}";
   const ZONE_ID = "{{zone_id}}";
 
-  let current = 0;
+  let started = false;
+  let completed = false;
   const btn = document.getElementById('actionBtn');
   const err = document.getElementById('err');
-  const stepNum = document.getElementById('stepNum');
   const title = document.getElementById('title');
   const subtitle = document.getElementById('subtitle');
-  const prog = document.getElementById('progress');
-
-  // Build dots
-  for (let i = 0; i < TOTAL; i++) {
-    const d = document.createElement('div');
-    d.className = 'dot';
-    prog.appendChild(d);
-  }
-  updateDots();
-
-  function updateDots() {
-    [...prog.children].forEach((d, i) => {
-      d.className = 'dot' + (i < current ? ' done' : i === current ? ' active' : '');
-    });
-    stepNum.innerHTML = (current + 1) + '<span style="opacity:.4">/' + TOTAL + '</span>';
-  }
 
   function setBtn(text, disabled = false) {
     btn.innerHTML = text;
@@ -75,11 +59,11 @@
     return window['show_' + ZONE_ID];
   }
 
-  // Monetag In-App runs 2 ads on the same page/screen automatically.
+  // Monetag In-App opens multiple ads on the same page/screen automatically.
   async function showInAppAds() {
     const fn = getShowFn();
     if (typeof fn !== 'function') throw new Error('Ad SDK not loaded. Refresh and try again.');
-    return await fn({
+    fn({
       type: 'inApp',
       inAppSettings: {
         frequency: TOTAL,
@@ -91,25 +75,33 @@
     });
   }
 
+  function waitForAdsWindow() {
+    const seconds = Math.max(35, ((TOTAL - 1) * 30) + 8);
+    return new Promise(resolve => setTimeout(resolve, seconds * 1000));
+  }
+
   async function handleClick() {
+    if (started) return;
+    started = true;
     btn.disabled = true;
     err.textContent = '';
 
-    title.textContent = 'Watching ads...';
-    subtitle.innerHTML = 'Please wait, 2 ads will open on this same screen.';
+    title.textContent = 'Ads loading...';
+    subtitle.textContent = 'Do not close this screen.';
 
     try {
-      setBtn('<span class="loader"></span> Loading 2 Ads...', true);
+      setBtn('<span class="loader"></span> Loading Ads...', true);
       console.log('[Ads] Starting inApp ads count:', TOTAL);
-      await showInAppAds();
-      console.log('[Ads] InApp ads completed');
-      current = TOTAL;
-      updateDots();
+      showInAppAds();
+      await waitForAdsWindow();
+      completed = true;
+      console.log('[Ads] Wait completed');
     } catch (e) {
       console.error(e);
       err.textContent = e.message || 'Ad failed. Please try again.';
-      setBtn('🔄 Retry Ads');
+      setBtn('Retry');
       btn.disabled = false;
+      started = false;
       return;
     }
     await finish();
