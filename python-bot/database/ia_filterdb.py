@@ -67,7 +67,15 @@ class Media3(Document):
         collection_name = COLLECTION_NAME
 
 async def check_db_size(silentdb):
-    return (await silentdb.command("dbstats"))['dataSize']
+    """Return ACTUAL on-disk usage (storageSize + indexSize) in bytes.
+    This matches what MongoDB Atlas counts against the 512 MB free tier
+    quota. Previously we used 'dataSize' (logical/uncompressed) which is
+    ~2-3x larger than the real Atlas usage and caused premature 'DB full'
+    behavior even when 100+ MB was actually free."""
+    stats = await silentdb.command("dbstats")
+    storage = int(stats.get('storageSize', 0) or 0)
+    index_size = int(stats.get('indexSize', 0) or 0)
+    return storage + index_size
 
 
 # ===== AUTO CLEANUP: Delete oldest files when DB is near full =====
