@@ -12,7 +12,7 @@ import pytz
 from aiohttp import web
 from database.ia_filterdb import Media, Media2, auto_cleanup_dbs
 from database.topdb import silentdb as _silentdb_for_cleanup
-from database.users_chats_db import db
+from database.users_chats_db import db, db2 as _usersdb2_for_cleanup
 from info import *
 from utils import temp
 from Script import script
