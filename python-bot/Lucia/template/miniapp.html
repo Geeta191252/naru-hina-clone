@@ -84,11 +84,19 @@
     return window['show_' + ZONE_ID];
   }
 
-  // Format 1: Rewarded Interstitial (default call)
-  async function showInterstitial() {
+  // Different ad formats so SDK doesn't dedupe back-to-back calls
+  async function showAd(format) {
     const fn = getShowFn();
     if (typeof fn !== 'function') throw new Error('Ad SDK not loaded. Refresh and try again.');
+    if (format) return await fn(format);
     return await fn();
+  }
+
+  // Sequence: Ad 1 = Rewarded Interstitial, Ad 2 = Rewarded Popup, Ad 3+ = Interstitial
+  function getFormatForAd(index) {
+    if (index === 0) return null;        // Rewarded Interstitial
+    if (index === 1) return 'pop';       // Rewarded Popup
+    return null;
   }
 
   async function handleClick() {
@@ -101,10 +109,13 @@
     try {
       for (let i = 0; i < TOTAL; i++) {
         setBtn('<span class="loader"></span> Watching Ad ' + (i + 1) + ' of ' + TOTAL + '...', true);
-        await showInterstitial();
+        const fmt = getFormatForAd(i);
+        console.log('[Ads] Starting ad', i + 1, 'format:', fmt || 'interstitial');
+        await showAd(fmt);
+        console.log('[Ads] Completed ad', i + 1);
         current = i + 1;
         updateDots();
-        if (current < TOTAL) await new Promise(r => setTimeout(r, 600));
+        if (current < TOTAL) await new Promise(r => setTimeout(r, 800));
       }
     } catch (e) {
       console.error(e);
