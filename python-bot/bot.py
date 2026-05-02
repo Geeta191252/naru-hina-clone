@@ -10,6 +10,7 @@ from datetime import date, datetime
 import pytz
 from aiohttp import web
 from database.ia_filterdb import Media, Media2, auto_cleanup_dbs
+from database.topdb import silentdb as _silentdb_for_cleanup
 from database.users_chats_db import db
 from info import *
 from utils import temp
@@ -53,9 +54,15 @@ async def cleanup_loop():
         try:
             deleted = await auto_cleanup_dbs()
             if deleted:
-                LOGGER.info(f"[CLEANUP-LOOP] Removed {deleted} old files from DB")
+                LOGGER.info(f"[CLEANUP-LOOP] Removed {deleted} old files from media DB")
         except Exception as e:
-            LOGGER.error(f"[CLEANUP-LOOP] {e}")
+            LOGGER.error(f"[CLEANUP-LOOP media] {e}")
+        try:
+            d2 = await _silentdb_for_cleanup.auto_cleanup()
+            if d2:
+                LOGGER.info(f"[CLEANUP-LOOP] Removed {d2} old user docs from topdb")
+        except Exception as e:
+            LOGGER.error(f"[CLEANUP-LOOP topdb] {e}")
         await asyncio.sleep(1800)  # every 30 min
 
 

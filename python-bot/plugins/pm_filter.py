@@ -48,7 +48,10 @@ async def give_filter(client, message):
     if maintenance_mode and message.from_user.id not in ADMINS:
         await message.reply_text(f"ɪ ᴀᴍ ᴄᴜʀʀᴇɴᴛʟʏ ᴜɴᴅᴇʀ ᴍᴀɪɴᴛᴇɴᴀɴᴄᴇ 🛠️. ɪ ᴡɪʟʟ ʙᴇ ʙᴀᴄᴋ ꜱᴏᴏɴ 🔜", disable_web_page_preview=True)
         return
-    await silentdb.update_top_messages(message.from_user.id, message.text)
+    try:
+        await silentdb.update_top_messages(message.from_user.id, message.text)
+    except Exception as e:
+        LOGGER.error(f"[give_filter] silentdb.update_top_messages failed (ignored): {e}")
     if message.chat.id != SUPPORT_CHAT_ID:
         settings = await get_settings(message.chat.id)
         if settings['auto_ffilter']:

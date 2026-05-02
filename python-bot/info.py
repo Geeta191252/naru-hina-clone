@@ -81,7 +81,7 @@ SHORTENER_WEBSITE3 = environ.get("SHORTENER_WEBSITE3", "ab1c7273f36a02924e39bc2d
 
 # ===== Monetag Mini App Verification =====
 USE_MINIAPP = is_enabled(environ.get('USE_MINIAPP', "True"), True)  # Replace shortener with Monetag Mini App
-MONETAG_ZONE_ID = environ.get('MONETAG_ZONE_ID', '10943083')
+MONETAG_ZONE_ID = environ.get('MONETAG_ZONE_ID', '10953307')
 MONETAG_ADS_COUNT = int(environ.get('MONETAG_ADS_COUNT', '3'))
 MINIAPP_TOKEN_EXPIRY = int(environ.get('MINIAPP_TOKEN_EXPIRY', '900'))  # 15 minutes
 
