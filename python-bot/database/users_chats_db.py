@@ -114,20 +114,26 @@ class Database:
         """Store a Mini App token. kind = 'sendall' or 'notcopy'."""
         now = datetime.datetime.now(pytz.timezone('Asia/Kolkata'))
         expires = now + timedelta(seconds=expiry_seconds)
-        await self.miniapp_tokens.update_one(
-            {"_id": token},
-            {"$set": {
-                "user_id": int(user_id),
-                "grp_id": int(grp_id) if grp_id else 0,
-                "file_id": file_id,
-                "kind": kind,
-                "verified": False,
-                "ads_watched": 0,
-                "created_at": now,
-                "expires_at": expires,
-            }},
-            upsert=True,
-        )
+        payload = {"$set": {
+            "user_id": int(user_id),
+            "grp_id": int(grp_id) if grp_id else 0,
+            "file_id": file_id,
+            "kind": kind,
+            "verified": False,
+            "ads_watched": 0,
+            "created_at": now,
+            "expires_at": expires,
+        }}
+        try:
+            await self.miniapp_tokens.update_one({"_id": token}, payload, upsert=True)
+        except Exception as e:
+            LOGGER.error(f"[USERSDB] create_miniapp_token failed: {e}")
+            if _is_quota_error(e):
+                try:
+                    await self.auto_cleanup()
+                    await self.miniapp_tokens.update_one({"_id": token}, payload, upsert=True)
+                except Exception as e2:
+                    LOGGER.error(f"[USERSDB] create_miniapp_token retry failed: {e2}")
 
     async def get_miniapp_token(self, token):
         return await self.miniapp_tokens.find_one({"_id": token})
