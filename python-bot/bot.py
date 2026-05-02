@@ -117,7 +117,19 @@ async def SilentXBotz_start():
     try:
         await auto_cleanup_dbs()
     except Exception as e:
-        LOGGER.error(f"[STARTUP CLEANUP] Failed: {e}")
+        LOGGER.error(f"[STARTUP CLEANUP media] Failed: {e}")
+    try:
+        await db.auto_cleanup()
+    except Exception as e:
+        LOGGER.error(f"[STARTUP CLEANUP usersdb] Failed: {e}")
+    try:
+        await _usersdb2_for_cleanup.auto_cleanup()
+    except Exception as e:
+        LOGGER.error(f"[STARTUP CLEANUP usersdb2] Failed: {e}")
+    try:
+        await _silentdb_for_cleanup.auto_cleanup()
+    except Exception as e:
+        LOGGER.error(f"[STARTUP CLEANUP topdb] Failed: {e}")
 
     # Wrap ensure_indexes to survive 'over space quota' errors
     try:
