@@ -170,30 +170,17 @@ def _db_quota_bytes():
 
 
 async def _get_db_usage(db_handle):
-    """Sum Atlas Flex/M0 data usage across all user databases.
-    MongoDB Atlas quota usage is dataSize + indexSize, not only dataSize."""
+    """Return Atlas-style usage for this exact configured bot database.
+    MongoDB Atlas quota/data view matches dataSize + indexSize."""
     quota_bytes = _db_quota_bytes()
     used = 0
     try:
-        client = db_handle.client
-        try:
-            db_names = await client.list_database_names()
-        except Exception as e:
-            LOGGER.error(f"list_database_names error: {e}")
-            db_names = [db_handle.name]
-        for name in db_names:
-            if not _is_user_database(name):
-                continue
-            try:
-                stats = await client[name].command("dbStats")
-                data_size = int(stats.get('dataSize', 0) or 0)
-                index_size = int(stats.get('indexSize', 0) or 0)
-                used += data_size + index_size
-                LOGGER.info(f"[STATS] cluster_db={name} dataSize={data_size} indexSize={index_size} total={data_size + index_size}")
-            except Exception as e:
-                LOGGER.error(f"dbStats error for {name}: {e}")
+        stats = await db_handle.command("dbStats")
+        data_size = int(stats.get('dataSize', 0) or 0)
+        index_size = int(stats.get('indexSize', 0) or 0)
+        used = data_size + index_size
         free = max(quota_bytes - used, 0)
-        LOGGER.info(f"[STATS] cluster_total_used={used} quota={quota_bytes}")
+        LOGGER.info(f"[STATS] db={db_handle.name} dataSize={data_size} indexSize={index_size} used={used} quota={quota_bytes}")
         return used, free, quota_bytes
     except Exception as e:
         LOGGER.error(f"_get_db_usage error: {e}")
