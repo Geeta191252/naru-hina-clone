@@ -189,8 +189,25 @@ async def _get_db_usage(db_handle):
 
 
 def _same_mongo_db(left, right):
+    """True if both motor DB handles point to the same cluster+database.
+    We compare the underlying connection nodes and DB name. If the URIs
+    resolve to the same host:port and same DB name, treat them as one."""
     try:
-        return left.client.address == right.client.address and left.name == right.name
+        if left is right:
+            return True
+        if left.name != right.name:
+            return False
+        l_nodes = sorted(str(n) for n in (left.client.nodes or []))
+        r_nodes = sorted(str(n) for n in (right.client.nodes or []))
+        if l_nodes and r_nodes and l_nodes == r_nodes:
+            return True
+        # Fallback: compare topology description seed addresses
+        try:
+            l_seed = left.client.topology_description.server_descriptions().keys()
+            r_seed = right.client.topology_description.server_descriptions().keys()
+            return sorted(map(str, l_seed)) == sorted(map(str, r_seed))
+        except Exception:
+            return False
     except Exception:
         return left is right
 
