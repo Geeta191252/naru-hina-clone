@@ -2,8 +2,20 @@ import motor.motor_asyncio
 from info import *  
 from datetime import timedelta
 import time, datetime, pytz
+import os as _os
 from pymongo.errors import DuplicateKeyError
 from pymongo import MongoClient
+from logging_helper import LOGGER
+
+# Free tier 512 MB. Cleanup junk collections (verify_id, miniapp_tokens) above threshold.
+USERSDB_CLEANUP_THRESHOLD_MB = int(_os.environ.get('USERSDB_CLEANUP_THRESHOLD_MB', '460'))
+USERSDB_CLEANUP_BATCH = int(_os.environ.get('USERSDB_CLEANUP_BATCH', '2000'))
+
+
+def _is_quota_error(e):
+    s = str(e).lower()
+    return ('space quota' in s) or ('over your space' in s) or ('quota' in s and '512' in s)
+
 
 class Database:    
     def __init__(self, uri, database_name):
@@ -19,6 +31,84 @@ class Database:
         self.connection = self.db.connections
         self.forceadd = self.db.forceadd
         self.miniapp_tokens = self.db.miniapp_tokens
+
+    async def _db_size_mb(self):
+        try:
+            stats = await self.db.command("dbstats")
+            used = int(stats.get('storageSize', 0)) + int(stats.get('indexSize', 0))
+            if used == 0:
+                used = int(stats.get('dataSize', 0))
+            return used / 1024 / 1024
+        except Exception:
+            return 0
+
+    async def auto_cleanup(self):
+        """If users-DB above threshold, delete oldest junk: expired tokens, old verify_ids, expired premiums."""
+        try:
+            size_mb = await self._db_size_mb()
+            if size_mb < USERSDB_CLEANUP_THRESHOLD_MB:
+                return 0
+            LOGGER.warning(f"[USERSDB-CLEANUP] size {size_mb:.1f} MB >= {USERSDB_CLEANUP_THRESHOLD_MB} MB. Cleaning junk collections...")
+            total = 0
+            now = datetime.datetime.now(pytz.timezone('Asia/Kolkata'))
+            # 1) expired miniapp tokens
+            try:
+                r = await self.miniapp_tokens.delete_many({'expires_at': {'$lt': now}})
+                total += r.deleted_count
+                LOGGER.warning(f"[USERSDB-CLEANUP] expired miniapp_tokens: {r.deleted_count}")
+            except Exception as e:
+                LOGGER.error(f"[USERSDB-CLEANUP] miniapp_tokens: {e}")
+            # 2) old verify_id docs (batch oldest)
+            for _ in range(10):
+                size_mb = await self._db_size_mb()
+                if size_mb < USERSDB_CLEANUP_THRESHOLD_MB:
+                    break
+                try:
+                    cursor = self.verify_id.find({}, {'_id': 1}).sort('$natural', 1).limit(USERSDB_CLEANUP_BATCH)
+                    ids = [d['_id'] async for d in cursor]
+                    if not ids:
+                        break
+                    r = await self.verify_id.delete_many({'_id': {'$in': ids}})
+                    total += r.deleted_count
+                    LOGGER.warning(f"[USERSDB-CLEANUP] verify_id: {r.deleted_count}")
+                except Exception as e:
+                    LOGGER.error(f"[USERSDB-CLEANUP] verify_id loop: {e}")
+                    break
+            # 3) old miniapp tokens (any remaining)
+            for _ in range(10):
+                size_mb = await self._db_size_mb()
+                if size_mb < USERSDB_CLEANUP_THRESHOLD_MB:
+                    break
+                try:
+                    cursor = self.miniapp_tokens.find({}, {'_id': 1}).sort('$natural', 1).limit(USERSDB_CLEANUP_BATCH)
+                    ids = [d['_id'] async for d in cursor]
+                    if not ids:
+                        break
+                    r = await self.miniapp_tokens.delete_many({'_id': {'$in': ids}})
+                    total += r.deleted_count
+                    LOGGER.warning(f"[USERSDB-CLEANUP] miniapp_tokens(old): {r.deleted_count}")
+                except Exception as e:
+                    LOGGER.error(f"[USERSDB-CLEANUP] miniapp_tokens loop: {e}")
+                    break
+            # 4) expired premium users (expiry_time in past) — only clear field, keep user
+            try:
+                await self.users.update_many(
+                    {"expiry_time": {"$lt": datetime.datetime.now()}},
+                    {"$set": {"expiry_time": None}}
+                )
+            except Exception:
+                pass
+            # 5) compact junk collections
+            for c in ('verify_id', 'miniapp_tokens'):
+                try:
+                    await self.db.command({'compact': c})
+                except Exception:
+                    pass
+            LOGGER.warning(f"[USERSDB-CLEANUP] total deleted = {total}")
+            return total
+        except Exception as e:
+            LOGGER.error(f"[USERSDB-CLEANUP] failed: {e}")
+            return 0
 
     async def create_miniapp_token(self, token, user_id, grp_id, file_id, kind, expiry_seconds=900):
         """Store a Mini App token. kind = 'sendall' or 'notcopy'."""
