@@ -170,40 +170,28 @@ def _db_quota_bytes():
 
 
 async def _get_db_usage(db_handle):
-    """Return Atlas quota usage for this MongoDB account/cluster.
-    Atlas free-tier quota is based on allocated storage, not logical dataSize.
-    Use dbStats totalSize (storageSize + indexSize) for every non-system DB
-    in the account so /stats matches the MongoDB dashboard usage/free values.
-    """
+    """Return the same logical Data Size shown for this DB in MongoDB Atlas."""
     quota_bytes = _db_quota_bytes()
     try:
-        try:
-            db_names = [name for name in await db_handle.client.list_database_names() if _is_user_database(name)]
-        except Exception as e:
-            LOGGER.error(f"_get_db_usage list databases error for {db_handle.name}: {e}")
-            db_names = [db_handle.name]
-
-        used = 0
-        details = []
-        for name in db_names:
-            stats = await db_handle.client[name].command("dbStats")
-            storage_size = int(stats.get('storageSize', 0) or 0)
-            index_size = int(stats.get('indexSize', 0) or 0)
-            total_size = int(stats.get('totalSize', 0) or 0) or (storage_size + index_size)
-            used += total_size
-            details.append(
-                f"{name}=total:{total_size},storage:{storage_size},index:{index_size},data:{int(stats.get('dataSize', 0) or 0)}"
-            )
+        stats = await db_handle.command("dbStats")
+        used = int(stats.get('dataSize', 0) or 0)
+        storage_size = int(stats.get('storageSize', 0) or 0)
+        index_size = int(stats.get('indexSize', 0) or 0)
+        total_size = int(stats.get('totalSize', 0) or 0) or (storage_size + index_size)
 
         free = max(quota_bytes - used, 0)
         LOGGER.info(
-            f"[STATS] account_for={db_handle.name} cluster_totalSize={used} "
-            f"databases=({', '.join(details)})"
+            f"[STATS] database={db_handle.name} dataSize={used} "
+            f"totalSize={total_size} storage={storage_size} index={index_size}"
         )
         return used, free, quota_bytes
     except Exception as e:
         LOGGER.error(f"_get_db_usage dbStats error: {e}")
         return 0, quota_bytes, quota_bytes
+
+
+def _format_quota_usage(used, quota):
+    return f"{get_size(used)} / {get_size(quota)}"
 
 
 def _same_mongo_db(left, right):
