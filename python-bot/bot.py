@@ -108,6 +108,7 @@ async def SilentXBotz_start():
     temp.B_LINK = me.mention
     SilentX.username = '@' + me.username
     SilentX.loop.create_task(check_expired_premium(SilentX))
+    SilentX.loop.create_task(cleanup_loop())
     LOGGER.info(f"{me.first_name} with Pyrogram v{__version__} (Layer {layer}) started on {me.username}.")
     LOGGER.info(script.LOGO)
     tz = pytz.timezone('Asia/Kolkata')
