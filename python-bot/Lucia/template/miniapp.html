@@ -71,24 +71,25 @@
     throw new Error('Ad SDK not loaded. Refresh and try again.');
   }
 
-  // Same-screen in-app stack: Monetag shows multiple ads in one overlay with top progress lines.
-  async function startInAppAds() {
+  // Show one interstitial ad (Rewarded Popup style) and wait until it closes
+  async function showOneAd() {
     const fn = await waitForSdk();
-    return fn({
-      type: 'inApp',
-      inAppSettings: {
-        frequency: TOTAL,
-        capping: 0,
-        interval: 1,
-        timeout: 8,
-        everyPage: false
-      }
-    });
+    // Calling fn() with no args triggers a Rewarded Interstitial that resolves when ad closes
+    return fn();
   }
 
-  function waitForAdsWindow() {
-    const seconds = Math.max(22, (TOTAL * 8) + 4);
-    return new Promise(resolve => setTimeout(resolve, seconds * 1000));
+  // Loop through TOTAL ads back-to-back on the SAME screen (no UI change between ads)
+  async function showAllAdsSameScreen() {
+    for (let i = 0; i < TOTAL; i++) {
+      console.log(`[Ads] Showing ad ${i + 1}/${TOTAL}`);
+      try {
+        await showOneAd();
+      } catch (e) {
+        console.warn(`[Ads] Ad ${i + 1} failed:`, e);
+      }
+      // tiny pause so SDK can reset before next ad on same screen
+      if (i < TOTAL - 1) await sleep(600);
+    }
   }
 
   async function handleClick() {
@@ -102,11 +103,10 @@
 
     try {
       setBtn('<span class="loader"></span> Loading Ads...', true);
-      console.log('[Ads] Starting same-screen inApp ads count:', TOTAL);
-      await startInAppAds();
-      await waitForAdsWindow();
+      console.log('[Ads] Starting sequential ads count:', TOTAL);
+      await showAllAdsSameScreen();
       completed = true;
-      console.log('[Ads] Wait completed');
+      console.log('[Ads] All ads completed');
     } catch (e) {
       console.error(e);
       err.textContent = e.message || 'Ad failed. Please try again.';
