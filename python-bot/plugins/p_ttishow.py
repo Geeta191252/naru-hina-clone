@@ -182,13 +182,13 @@ async def _get_db_usage(db_handle):
             LOGGER.error(f"list_database_names error: {e}")
             db_names = [db_handle.name]
         for name in db_names:
+            if not _is_user_database(name):
+                continue
             try:
                 stats = await client[name].command("dbStats")
-                storage_size = int(stats.get('storageSize', 0) or 0)
-                index_size = int(stats.get('indexSize', 0) or 0)
-                size = storage_size + index_size
-                used += size
-                LOGGER.info(f"[STATS] cluster_db={name} storageSize={storage_size} indexSize={index_size} total={size}")
+                data_size = int(stats.get('dataSize', 0) or 0)
+                used += data_size
+                LOGGER.info(f"[STATS] cluster_db={name} dataSize={data_size}")
             except Exception as e:
                 LOGGER.error(f"dbStats error for {name}: {e}")
         free = max(quota_bytes - used, 0)
