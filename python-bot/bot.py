@@ -45,6 +45,20 @@ def ping_loop():
             LOGGER.error(f"❌ Exception During Ping: {e}")
         time.sleep(120)
 
+
+async def cleanup_loop():
+    """Periodically free DB space so we never hit the 512 MB hard limit again."""
+    await asyncio.sleep(60)
+    while True:
+        try:
+            deleted = await auto_cleanup_dbs()
+            if deleted:
+                LOGGER.info(f"[CLEANUP-LOOP] Removed {deleted} old files from DB")
+        except Exception as e:
+            LOGGER.error(f"[CLEANUP-LOOP] {e}")
+        await asyncio.sleep(1800)  # every 30 min
+
+
 async def SilentXBotz_start():
     LOGGER.info('Initalizing Your Bot!')
     await SilentX.start()
