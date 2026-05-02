@@ -160,30 +160,33 @@ async def re_enable_chat(bot, message):
     await message.reply("Chat Successfully re-enabled")
 
 async def _get_db_usage(db_handle):
-    """Return (used_bytes, free_bytes, quota_bytes) for ONE database only.
-
-    MongoDB Atlas free tier (512 MB) counts UNCOMPRESSED logical data size
-    (`dataSize` from dbStats) — NOT WiredTiger compressed `storageSize` and
-    NOT cluster-wide `sizeOnDisk` from listDatabases. Using those gives
-    completely wrong numbers (e.g. 27 GB on a 512 MB cluster).
-
-    Each Media DB lives on its own cluster (separate URI), so we must report
-    that single DB's logical dataSize + indexSize against the 512 MB quota.
-    """
+    """Return media collection usage only, not whole DB/cluster usage."""
     import os as _os
     quota_mb = int(_os.environ.get('DB_QUOTA_MB', '512'))
     quota_bytes = quota_mb * 1024 * 1024
     try:
-        stats = await db_handle.command("dbStats")
-        # Atlas quota = logical (uncompressed) data + indexes
-        data_size = int(stats.get('dataSize', 0) or 0)
-        index_size = int(stats.get('indexSize', 0) or 0)
+        stats = await db_handle.command("collStats", COLLECTION_NAME)
+        # Only count the bot media collection. dbStats/listDatabases can include
+        # other collections, old deleted storage, or cluster-level overhead.
+        data_size = int(stats.get('size', 0) or 0)
+        index_size = int(stats.get('totalIndexSize', 0) or 0)
         used = data_size + index_size
         free = max(quota_bytes - used, 0)
         return used, free, quota_bytes
     except Exception as e:
-        LOGGER.error(f"_get_db_usage dbStats error: {e}")
+        LOGGER.error(f"_get_db_usage collStats error: {e}")
         return 0, quota_bytes, quota_bytes
+
+
+def _same_mongo_db(left, right):
+    try:
+        return left.client.address == right.client.address and left.name == right.name
+    except Exception:
+        return left is right
+
+
+def _third_db_enabled():
+    return bool(DATABASE_URI3 and DATABASE_URI2 and DATABASE_URI3 != DATABASE_URI2)
 
 
 @Client.on_message(filters.command('stats') & filters.user(ADMINS))
@@ -221,12 +224,15 @@ async def get_stats(bot, message):
         db2_size, free2, _q2 = await _get_db_usage(db2_stats)
 
         # ----- Third DB -----
-        try:
-            file3 = await Media3.count_documents()
-        except Exception as e:
-            LOGGER.error(f"Media3 count error: {e}")
-            file3 = 0
-        db3_size, free3, _q3 = await _get_db_usage(db3_stats)
+        if _third_db_enabled():
+            try:
+                file3 = await Media3.count_documents()
+            except Exception as e:
+                LOGGER.error(f"Media3 count error: {e}")
+                file3 = 0
+            db3_size, free3, _q3 = await _get_db_usage(db3_stats)
+        else:
+            file3, db3_size, free3 = 0, 0, 0
 
         await SilentXBotz.edit(script.MULTI_STATUS_TXT.format(
             total_users, totl_chats, premium, file1, get_size(db_size), get_size(free),
