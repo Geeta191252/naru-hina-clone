@@ -426,15 +426,39 @@ class Database:
    
     async def create_verify_id(self, user_id: int, hash):
         res = {"user_id": user_id, "hash":hash, "verified":False}
-        return await self.verify_id.insert_one(res)
+        try:
+            return await self.verify_id.insert_one(res)
+        except Exception as e:
+            LOGGER.error(f"[USERSDB] create_verify_id failed: {e}")
+            if _is_quota_error(e):
+                try:
+                    await self.auto_cleanup()
+                    return await self.verify_id.insert_one(res)
+                except Exception as e2:
+                    LOGGER.error(f"[USERSDB] create_verify_id retry failed: {e2}")
+            return None
 
     async def get_verify_id_info(self, user_id: int, hash):
-        return await self.verify_id.find_one({"user_id": user_id, "hash": hash})
+        try:
+            return await self.verify_id.find_one({"user_id": user_id, "hash": hash})
+        except Exception as e:
+            LOGGER.error(f"[USERSDB] get_verify_id_info failed: {e}")
+            return None
 
     async def update_verify_id_info(self, user_id, hash, value: dict):
         myquery = {"user_id": user_id, "hash": hash}
         newvalues = { "$set": value }
-        return await self.verify_id.update_one(myquery, newvalues)
+        try:
+            return await self.verify_id.update_one(myquery, newvalues)
+        except Exception as e:
+            LOGGER.error(f"[USERSDB] update_verify_id_info failed: {e}")
+            if _is_quota_error(e):
+                try:
+                    await self.auto_cleanup()
+                    return await self.verify_id.update_one(myquery, newvalues)
+                except Exception as e2:
+                    LOGGER.error(f"[USERSDB] update_verify_id_info retry failed: {e2}")
+            return None
         
     async def has_premium_access(self, user_id):
         user_data = await self.get_user(user_id)
