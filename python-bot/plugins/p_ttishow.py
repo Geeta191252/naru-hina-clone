@@ -185,6 +185,10 @@ def _same_mongo_db(left, right):
         return left is right
 
 
+def _third_db_enabled():
+    return bool(DATABASE_URI3 and DATABASE_URI2 and DATABASE_URI3 != DATABASE_URI2)
+
+
 @Client.on_message(filters.command('stats') & filters.user(ADMINS))
 async def get_stats(bot, message):
     SilentXBotz = await message.reply('ᴀᴄᴄᴇꜱꜱɪɴɢ ꜱᴛᴀᴛᴜꜱ ᴅᴇᴛᴀɪʟꜱ...')
@@ -220,8 +224,7 @@ async def get_stats(bot, message):
         db2_size, free2, _q2 = await _get_db_usage(db2_stats)
 
         # ----- Third DB -----
-        has_third_db = not _same_mongo_db(db2_stats, db3_stats)
-        if has_third_db:
+        if _third_db_enabled():
             try:
                 file3 = await Media3.count_documents()
             except Exception as e:
