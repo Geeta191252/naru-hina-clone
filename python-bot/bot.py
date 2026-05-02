@@ -9,7 +9,7 @@ import asyncio
 from datetime import date, datetime
 import pytz
 from aiohttp import web
-from database.ia_filterdb import Media, Media2
+from database.ia_filterdb import Media, Media2, auto_cleanup_dbs
 from database.users_chats_db import db
 from info import *
 from utils import temp
@@ -45,6 +45,20 @@ def ping_loop():
             LOGGER.error(f"❌ Exception During Ping: {e}")
         time.sleep(120)
 
+
+async def cleanup_loop():
+    """Periodically free DB space so we never hit the 512 MB hard limit again."""
+    await asyncio.sleep(60)
+    while True:
+        try:
+            deleted = await auto_cleanup_dbs()
+            if deleted:
+                LOGGER.info(f"[CLEANUP-LOOP] Removed {deleted} old files from DB")
+        except Exception as e:
+            LOGGER.error(f"[CLEANUP-LOOP] {e}")
+        await asyncio.sleep(1800)  # every 30 min
+
+
 async def SilentXBotz_start():
     LOGGER.info('Initalizing Your Bot!')
     await SilentX.start()
@@ -67,10 +81,24 @@ async def SilentXBotz_start():
     b_users, b_chats = await db.get_banned()
     temp.BANNED_USERS = b_users
     temp.BANNED_CHATS = b_chats
-    await Media.ensure_indexes()
+
+    # ===== AUTO CLEANUP: Free space if any DB is near full BEFORE creating indexes =====
+    try:
+        await auto_cleanup_dbs()
+    except Exception as e:
+        LOGGER.error(f"[STARTUP CLEANUP] Failed: {e}")
+
+    # Wrap ensure_indexes to survive 'over space quota' errors
+    try:
+        await Media.ensure_indexes()
+    except Exception as e:
+        LOGGER.error(f"[ensure_indexes Media] {e} — continuing without rebuilding indexes")
     if MULTIPLE_DB:
-        await Media2.ensure_indexes()
-        LOGGER.info("Multiple Database Mode On. Now Files Will Be Save In Second DB If First DB Is Full")
+        try:
+            await Media2.ensure_indexes()
+            LOGGER.info("Multiple Database Mode On. Now Files Will Be Save In Second DB If First DB Is Full")
+        except Exception as e:
+            LOGGER.error(f"[ensure_indexes Media2] {e} — continuing")
     else:
         LOGGER.info("Single DB Mode On ! Files Will Be Save In First Database")
     me = await SilentX.get_me()
@@ -80,6 +108,7 @@ async def SilentXBotz_start():
     temp.B_LINK = me.mention
     SilentX.username = '@' + me.username
     SilentX.loop.create_task(check_expired_premium(SilentX))
+    SilentX.loop.create_task(cleanup_loop())
     LOGGER.info(f"{me.first_name} with Pyrogram v{__version__} (Layer {layer}) started on {me.username}.")
     LOGGER.info(script.LOGO)
     tz = pytz.timezone('Asia/Kolkata')
