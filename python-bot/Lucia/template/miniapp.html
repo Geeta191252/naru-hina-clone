@@ -59,8 +59,32 @@
     return window['show_' + ZONE_ID];
   }
 
-  // Monetag In-App opens multiple ads on the same page/screen automatically.
-  async function showInAppAds() {
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  async function waitForSdk() {
+    for (let i = 0; i < 30; i++) {
+      if (typeof getShowFn() === 'function') return getShowFn();
+      await sleep(250);
+    }
+    throw new Error('Ad SDK not loaded. Refresh and try again.');
+  }
+
+  // Same page/screen: show one ad, then auto-open the next ad after it closes.
+  async function showOneAd() {
+    const fn = await waitForSdk();
+    await fn();
+  }
+
+  async function showAdsOnSameScreen() {
+    for (let i = 0; i < TOTAL; i++) {
+      await showOneAd();
+      if (i < TOTAL - 1) await sleep(1200);
+    }
+  }
+
+  async function startInAppFallback() {
     const fn = getShowFn();
     if (typeof fn !== 'function') throw new Error('Ad SDK not loaded. Refresh and try again.');
     fn({
@@ -91,9 +115,14 @@
 
     try {
       setBtn('<span class="loader"></span> Loading Ads...', true);
-      console.log('[Ads] Starting inApp ads count:', TOTAL);
-      showInAppAds();
-      await waitForAdsWindow();
+      console.log('[Ads] Starting same-screen ads count:', TOTAL);
+      try {
+        await showAdsOnSameScreen();
+      } catch (adError) {
+        console.warn('[Ads] Direct ad sequence failed, trying inApp fallback', adError);
+        startInAppFallback();
+        await waitForAdsWindow();
+      }
       completed = true;
       console.log('[Ads] Wait completed');
     } catch (e) {
