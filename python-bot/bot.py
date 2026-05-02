@@ -12,7 +12,7 @@ import pytz
 from aiohttp import web
 from database.ia_filterdb import Media, Media2, auto_cleanup_dbs
 from database.topdb import silentdb as _silentdb_for_cleanup
-from database.users_chats_db import db
+from database.users_chats_db import db, db2 as _usersdb2_for_cleanup
 from info import *
 from utils import temp
 from Script import script
@@ -64,6 +64,18 @@ async def cleanup_loop():
                 LOGGER.info(f"[CLEANUP-LOOP] Removed {d2} old user docs from topdb")
         except Exception as e:
             LOGGER.error(f"[CLEANUP-LOOP topdb] {e}")
+        try:
+            d3 = await db.auto_cleanup()
+            if d3:
+                LOGGER.info(f"[CLEANUP-LOOP] Cleaned {d3} junk docs from users-DB")
+        except Exception as e:
+            LOGGER.error(f"[CLEANUP-LOOP usersdb] {e}")
+        try:
+            d4 = await _usersdb2_for_cleanup.auto_cleanup()
+            if d4:
+                LOGGER.info(f"[CLEANUP-LOOP] Cleaned {d4} junk docs from users-DB2")
+        except Exception as e:
+            LOGGER.error(f"[CLEANUP-LOOP usersdb2] {e}")
         await asyncio.sleep(1800)  # every 30 min
 
 
@@ -105,7 +117,19 @@ async def SilentXBotz_start():
     try:
         await auto_cleanup_dbs()
     except Exception as e:
-        LOGGER.error(f"[STARTUP CLEANUP] Failed: {e}")
+        LOGGER.error(f"[STARTUP CLEANUP media] Failed: {e}")
+    try:
+        await db.auto_cleanup()
+    except Exception as e:
+        LOGGER.error(f"[STARTUP CLEANUP usersdb] Failed: {e}")
+    try:
+        await _usersdb2_for_cleanup.auto_cleanup()
+    except Exception as e:
+        LOGGER.error(f"[STARTUP CLEANUP usersdb2] Failed: {e}")
+    try:
+        await _silentdb_for_cleanup.auto_cleanup()
+    except Exception as e:
+        LOGGER.error(f"[STARTUP CLEANUP topdb] Failed: {e}")
 
     # Wrap ensure_indexes to survive 'over space quota' errors
     try:

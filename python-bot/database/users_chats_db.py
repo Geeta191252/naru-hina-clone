@@ -2,8 +2,20 @@ import motor.motor_asyncio
 from info import *  
 from datetime import timedelta
 import time, datetime, pytz
+import os as _os
 from pymongo.errors import DuplicateKeyError
 from pymongo import MongoClient
+from logging_helper import LOGGER
+
+# Free tier 512 MB. Cleanup junk collections (verify_id, miniapp_tokens) above threshold.
+USERSDB_CLEANUP_THRESHOLD_MB = int(_os.environ.get('USERSDB_CLEANUP_THRESHOLD_MB', '460'))
+USERSDB_CLEANUP_BATCH = int(_os.environ.get('USERSDB_CLEANUP_BATCH', '2000'))
+
+
+def _is_quota_error(e):
+    s = str(e).lower()
+    return ('space quota' in s) or ('over your space' in s) or ('quota' in s and '512' in s)
+
 
 class Database:    
     def __init__(self, uri, database_name):
@@ -20,24 +32,108 @@ class Database:
         self.forceadd = self.db.forceadd
         self.miniapp_tokens = self.db.miniapp_tokens
 
+    async def _db_size_mb(self):
+        try:
+            stats = await self.db.command("dbstats")
+            used = int(stats.get('storageSize', 0)) + int(stats.get('indexSize', 0))
+            if used == 0:
+                used = int(stats.get('dataSize', 0))
+            return used / 1024 / 1024
+        except Exception:
+            return 0
+
+    async def auto_cleanup(self):
+        """If users-DB above threshold, delete oldest junk: expired tokens, old verify_ids, expired premiums."""
+        try:
+            size_mb = await self._db_size_mb()
+            if size_mb < USERSDB_CLEANUP_THRESHOLD_MB:
+                return 0
+            LOGGER.warning(f"[USERSDB-CLEANUP] size {size_mb:.1f} MB >= {USERSDB_CLEANUP_THRESHOLD_MB} MB. Cleaning junk collections...")
+            total = 0
+            now = datetime.datetime.now(pytz.timezone('Asia/Kolkata'))
+            # 1) expired miniapp tokens
+            try:
+                r = await self.miniapp_tokens.delete_many({'expires_at': {'$lt': now}})
+                total += r.deleted_count
+                LOGGER.warning(f"[USERSDB-CLEANUP] expired miniapp_tokens: {r.deleted_count}")
+            except Exception as e:
+                LOGGER.error(f"[USERSDB-CLEANUP] miniapp_tokens: {e}")
+            # 2) old verify_id docs (batch oldest)
+            for _ in range(10):
+                size_mb = await self._db_size_mb()
+                if size_mb < USERSDB_CLEANUP_THRESHOLD_MB:
+                    break
+                try:
+                    cursor = self.verify_id.find({}, {'_id': 1}).sort('$natural', 1).limit(USERSDB_CLEANUP_BATCH)
+                    ids = [d['_id'] async for d in cursor]
+                    if not ids:
+                        break
+                    r = await self.verify_id.delete_many({'_id': {'$in': ids}})
+                    total += r.deleted_count
+                    LOGGER.warning(f"[USERSDB-CLEANUP] verify_id: {r.deleted_count}")
+                except Exception as e:
+                    LOGGER.error(f"[USERSDB-CLEANUP] verify_id loop: {e}")
+                    break
+            # 3) old miniapp tokens (any remaining)
+            for _ in range(10):
+                size_mb = await self._db_size_mb()
+                if size_mb < USERSDB_CLEANUP_THRESHOLD_MB:
+                    break
+                try:
+                    cursor = self.miniapp_tokens.find({}, {'_id': 1}).sort('$natural', 1).limit(USERSDB_CLEANUP_BATCH)
+                    ids = [d['_id'] async for d in cursor]
+                    if not ids:
+                        break
+                    r = await self.miniapp_tokens.delete_many({'_id': {'$in': ids}})
+                    total += r.deleted_count
+                    LOGGER.warning(f"[USERSDB-CLEANUP] miniapp_tokens(old): {r.deleted_count}")
+                except Exception as e:
+                    LOGGER.error(f"[USERSDB-CLEANUP] miniapp_tokens loop: {e}")
+                    break
+            # 4) expired premium users (expiry_time in past) — only clear field, keep user
+            try:
+                await self.users.update_many(
+                    {"expiry_time": {"$lt": datetime.datetime.now()}},
+                    {"$set": {"expiry_time": None}}
+                )
+            except Exception:
+                pass
+            # 5) compact junk collections
+            for c in ('verify_id', 'miniapp_tokens'):
+                try:
+                    await self.db.command({'compact': c})
+                except Exception:
+                    pass
+            LOGGER.warning(f"[USERSDB-CLEANUP] total deleted = {total}")
+            return total
+        except Exception as e:
+            LOGGER.error(f"[USERSDB-CLEANUP] failed: {e}")
+            return 0
+
     async def create_miniapp_token(self, token, user_id, grp_id, file_id, kind, expiry_seconds=900):
         """Store a Mini App token. kind = 'sendall' or 'notcopy'."""
         now = datetime.datetime.now(pytz.timezone('Asia/Kolkata'))
         expires = now + timedelta(seconds=expiry_seconds)
-        await self.miniapp_tokens.update_one(
-            {"_id": token},
-            {"$set": {
-                "user_id": int(user_id),
-                "grp_id": int(grp_id) if grp_id else 0,
-                "file_id": file_id,
-                "kind": kind,
-                "verified": False,
-                "ads_watched": 0,
-                "created_at": now,
-                "expires_at": expires,
-            }},
-            upsert=True,
-        )
+        payload = {"$set": {
+            "user_id": int(user_id),
+            "grp_id": int(grp_id) if grp_id else 0,
+            "file_id": file_id,
+            "kind": kind,
+            "verified": False,
+            "ads_watched": 0,
+            "created_at": now,
+            "expires_at": expires,
+        }}
+        try:
+            await self.miniapp_tokens.update_one({"_id": token}, payload, upsert=True)
+        except Exception as e:
+            LOGGER.error(f"[USERSDB] create_miniapp_token failed: {e}")
+            if _is_quota_error(e):
+                try:
+                    await self.auto_cleanup()
+                    await self.miniapp_tokens.update_one({"_id": token}, payload, upsert=True)
+                except Exception as e2:
+                    LOGGER.error(f"[USERSDB] create_miniapp_token retry failed: {e2}")
 
     async def get_miniapp_token(self, token):
         return await self.miniapp_tokens.find_one({"_id": token})
@@ -86,7 +182,19 @@ class Database:
     
     async def add_user(self, id, name):
         user = self.new_user(id, name)
-        await self.col.insert_one(user)
+        try:
+            await self.col.insert_one(user)
+        except Exception as e:
+            LOGGER.error(f"[USERSDB] add_user failed for {id}: {e}")
+            if _is_quota_error(e):
+                try:
+                    await self.auto_cleanup()
+                    await self.col.insert_one(user)
+                    return
+                except Exception as e2:
+                    LOGGER.error(f"[USERSDB] add_user retry failed: {e2}")
+            # swallow — never crash search/start because of users-DB write
+            return
     
     async def is_user_exist(self, id):
         user = await self.col.find_one({'id':int(id)})
@@ -318,15 +426,39 @@ class Database:
    
     async def create_verify_id(self, user_id: int, hash):
         res = {"user_id": user_id, "hash":hash, "verified":False}
-        return await self.verify_id.insert_one(res)
+        try:
+            return await self.verify_id.insert_one(res)
+        except Exception as e:
+            LOGGER.error(f"[USERSDB] create_verify_id failed: {e}")
+            if _is_quota_error(e):
+                try:
+                    await self.auto_cleanup()
+                    return await self.verify_id.insert_one(res)
+                except Exception as e2:
+                    LOGGER.error(f"[USERSDB] create_verify_id retry failed: {e2}")
+            return None
 
     async def get_verify_id_info(self, user_id: int, hash):
-        return await self.verify_id.find_one({"user_id": user_id, "hash": hash})
+        try:
+            return await self.verify_id.find_one({"user_id": user_id, "hash": hash})
+        except Exception as e:
+            LOGGER.error(f"[USERSDB] get_verify_id_info failed: {e}")
+            return None
 
     async def update_verify_id_info(self, user_id, hash, value: dict):
         myquery = {"user_id": user_id, "hash": hash}
         newvalues = { "$set": value }
-        return await self.verify_id.update_one(myquery, newvalues)
+        try:
+            return await self.verify_id.update_one(myquery, newvalues)
+        except Exception as e:
+            LOGGER.error(f"[USERSDB] update_verify_id_info failed: {e}")
+            if _is_quota_error(e):
+                try:
+                    await self.auto_cleanup()
+                    return await self.verify_id.update_one(myquery, newvalues)
+                except Exception as e2:
+                    LOGGER.error(f"[USERSDB] update_verify_id_info retry failed: {e2}")
+            return None
         
     async def has_premium_access(self, user_id):
         user_data = await self.get_user(user_id)
