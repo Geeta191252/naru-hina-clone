@@ -170,8 +170,8 @@ def _db_quota_bytes():
 
 
 async def _get_db_usage(db_handle):
-    """Sum dataSize across ALL user databases in this Mongo cluster/account.
-    Matches the per-account storage shown in MongoDB Atlas dashboard."""
+    """Sum storageSize + indexSize across ALL databases in this Mongo account.
+    This matches MongoDB Atlas used storage/quota view better than dataSize."""
     quota_bytes = _db_quota_bytes()
     used = 0
     try:
@@ -182,13 +182,13 @@ async def _get_db_usage(db_handle):
             LOGGER.error(f"list_database_names error: {e}")
             db_names = [db_handle.name]
         for name in db_names:
-            if not _is_user_database(name):
-                continue
             try:
                 stats = await client[name].command("dbStats")
-                size = int(stats.get('dataSize', 0) or 0)
+                storage_size = int(stats.get('storageSize', 0) or 0)
+                index_size = int(stats.get('indexSize', 0) or 0)
+                size = storage_size + index_size
                 used += size
-                LOGGER.info(f"[STATS] cluster_db={name} dataSize={size}")
+                LOGGER.info(f"[STATS] cluster_db={name} storageSize={storage_size} indexSize={index_size} total={size}")
             except Exception as e:
                 LOGGER.error(f"dbStats error for {name}: {e}")
         free = max(quota_bytes - used, 0)
