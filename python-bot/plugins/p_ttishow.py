@@ -250,8 +250,8 @@ async def get_stats(bot, message):
             file2 = 0
         db2_size, free2, _q2 = await _get_db_usage(db2_stats)
 
-        # ----- Third DB -----
-        if _third_db_enabled() and not _same_mongo_db(db_stats, db3_stats) and not _same_mongo_db(db2_stats, db3_stats):
+        # ----- Third DB ----- (original logic — DB3 ko nahi chheda)
+        if _third_db_enabled():
             try:
                 file3 = await Media3.count_documents()
             except Exception as e:
@@ -259,7 +259,7 @@ async def get_stats(bot, message):
                 file3 = 0
             db3_size, free3, _q3 = await _get_db_usage(db3_stats)
         else:
-            file3, db3_size, free3 = 0, 0, 512 * 1024 * 1024
+            file3, db3_size, free3 = 0, 0, 0
 
         await SilentXBotz.edit(script.MULTI_STATUS_TXT.format(
             total_users, totl_chats, premium, file1, get_size(db_size), get_size(free),
