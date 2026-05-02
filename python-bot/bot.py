@@ -9,7 +9,7 @@ import asyncio
 from datetime import date, datetime
 import pytz
 from aiohttp import web
-from database.ia_filterdb import Media, Media2
+from database.ia_filterdb import Media, Media2, auto_cleanup_dbs
 from database.users_chats_db import db
 from info import *
 from utils import temp
