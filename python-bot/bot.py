@@ -4,6 +4,7 @@ import importlib
 from pathlib import Path
 from pyrogram import Client, idle, __version__
 from pyrogram.raw.all import layer
+from pyrogram.errors import FloodWait
 import time
 import asyncio
 from datetime import date, datetime
@@ -68,7 +69,18 @@ async def cleanup_loop():
 
 async def SilentXBotz_start():
     LOGGER.info('Initalizing Your Bot!')
-    await SilentX.start()
+    # Handle Telegram FloodWait on startup (happens after frequent restarts)
+    while True:
+        try:
+            await SilentX.start()
+            break
+        except FloodWait as e:
+            wait_time = int(getattr(e, 'value', getattr(e, 'x', 60)))
+            LOGGER.warning(f"⏳ FloodWait on startup: sleeping {wait_time}s before retry...")
+            await asyncio.sleep(wait_time + 2)
+        except Exception as e:
+            LOGGER.error(f"❌ Startup error: {e} — retrying in 30s")
+            await asyncio.sleep(30)
     bot_info = await SilentX.get_me()
     SilentX.username = bot_info.username
     await initialize_clients()
