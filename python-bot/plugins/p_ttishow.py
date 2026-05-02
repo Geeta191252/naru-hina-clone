@@ -160,20 +160,33 @@ async def re_enable_chat(bot, message):
     await message.reply("Chat Successfully re-enabled")
 
 async def _get_db_usage(db_handle):
-    """Return (files_count, used_bytes, free_bytes, quota_bytes) for a DB.
-    Uses storageSize + indexSize because that is what MongoDB Atlas free tier
-    (512 MB) actually counts against the quota — not dataSize.
+    """Return (used_bytes, free_bytes, quota_bytes) for the WHOLE CLUSTER that
+    db_handle lives on — not just one DB. Atlas free tier (512 MB) counts the
+    sum of ALL databases on the cluster, so we must use listDatabases.
+    Falls back to single-DB dbStats if listDatabases is not permitted.
     """
     import os as _os
     quota_mb = int(_os.environ.get('DB_QUOTA_MB', '512'))
     quota_bytes = quota_mb * 1024 * 1024
     try:
+        # Cluster-wide usage via admin listDatabases
+        client = db_handle.client
+        info = await client.admin.command("listDatabases")
+        total = 0
+        for d in info.get('databases', []):
+            # sizeOnDisk = on-disk bytes for that DB on this cluster
+            total += int(d.get('sizeOnDisk', 0) or 0)
+        if total > 0:
+            free = max(quota_bytes - total, 0)
+            return total, free, quota_bytes
+    except Exception as e:
+        LOGGER.warning(f"_get_db_usage listDatabases fallback: {e}")
+    # Fallback: single-DB stats
+    try:
         stats = await db_handle.command("dbStats")
-        # Atlas counts storageSize (on-disk) + indexSize against quota
         storage = int(stats.get('storageSize', 0) or 0)
         index_size = int(stats.get('indexSize', 0) or 0)
         used = storage + index_size
-        # safety: if storageSize unavailable fall back to dataSize
         if used == 0:
             used = int(stats.get('dataSize', 0) or 0)
         free = max(quota_bytes - used, 0)
