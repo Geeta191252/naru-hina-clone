@@ -169,18 +169,30 @@ def _db_quota_bytes():
     return quota_mb * 1024 * 1024
 
 
-async def _get_db_usage(db_handle):
-    """Return Atlas-style usage for this exact configured bot database.
-    MongoDB Atlas quota/data view matches dataSize + indexSize."""
+async def _get_db_usage(db_handle, include_cluster_databases=False):
+    """Return Atlas-style usage.
+    DB1 is shown by Atlas as whole cluster/account usage, so include all
+    non-system databases on that Mongo client. DB2/DB3 stay exact DB only."""
     quota_bytes = _db_quota_bytes()
     used = 0
     try:
-        stats = await db_handle.command("dbStats")
-        data_size = int(stats.get('dataSize', 0) or 0)
-        index_size = int(stats.get('indexSize', 0) or 0)
-        used = data_size + index_size
+        if include_cluster_databases:
+            db_names = await db_handle.client.list_database_names()
+            for name in db_names:
+                if not _is_user_database(name):
+                    continue
+                stats = await db_handle.client[name].command("dbStats")
+                data_size = int(stats.get('dataSize', 0) or 0)
+                index_size = int(stats.get('indexSize', 0) or 0)
+                used += data_size + index_size
+                LOGGER.info(f"[STATS] cluster-db={name} dataSize={data_size} indexSize={index_size} subtotal={data_size + index_size}")
+        else:
+            stats = await db_handle.command("dbStats")
+            data_size = int(stats.get('dataSize', 0) or 0)
+            index_size = int(stats.get('indexSize', 0) or 0)
+            used = data_size + index_size
         free = max(quota_bytes - used, 0)
-        LOGGER.info(f"[STATS] db={db_handle.name} dataSize={data_size} indexSize={index_size} used={used} quota={quota_bytes}")
+        LOGGER.info(f"[STATS] db={db_handle.name} include_cluster={include_cluster_databases} used={used} quota={quota_bytes}")
         return used, free, quota_bytes
     except Exception as e:
         LOGGER.error(f"_get_db_usage error: {e}")
@@ -233,7 +245,7 @@ async def get_stats(bot, message):
         except Exception as e:
             LOGGER.error(f"Media count error: {e}")
             file1 = 0
-        db_size, free, quota = await _get_db_usage(db_stats)
+        db_size, free, quota = await _get_db_usage(db_stats, include_cluster_databases=True)
 
         uptime = get_readable_time(time() - botStartTime)
         ram = psutil.virtual_memory().percent
