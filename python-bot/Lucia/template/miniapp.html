@@ -84,19 +84,20 @@
     return window['show_' + ZONE_ID];
   }
 
-  // Different ad formats so SDK doesn't dedupe back-to-back calls
-  async function showAd(format) {
+  // Monetag In-App runs 2 ads on the same page/screen automatically.
+  async function showInAppAds() {
     const fn = getShowFn();
     if (typeof fn !== 'function') throw new Error('Ad SDK not loaded. Refresh and try again.');
-    if (format) return await fn(format);
-    return await fn();
-  }
-
-  // Sequence: Ad 1 = Rewarded Interstitial, Ad 2 = Rewarded Popup, Ad 3+ = Interstitial
-  function getFormatForAd(index) {
-    if (index === 0) return null;        // Rewarded Interstitial
-    if (index === 1) return 'pop';       // Rewarded Popup
-    return null;
+    return await fn({
+      type: 'inApp',
+      inAppSettings: {
+        frequency: TOTAL,
+        capping: 0.1,
+        interval: 30,
+        timeout: 5,
+        everyPage: false
+      }
+    });
   }
 
   async function handleClick() {
@@ -104,19 +105,15 @@
     err.textContent = '';
 
     title.textContent = 'Watching ads...';
-    subtitle.innerHTML = 'Please complete ads one by one to unlock your file.';
+    subtitle.innerHTML = 'Please wait, 2 ads will open on this same screen.';
 
     try {
-      for (let i = 0; i < TOTAL; i++) {
-        setBtn('<span class="loader"></span> Watching Ad ' + (i + 1) + ' of ' + TOTAL + '...', true);
-        const fmt = getFormatForAd(i);
-        console.log('[Ads] Starting ad', i + 1, 'format:', fmt || 'interstitial');
-        await showAd(fmt);
-        console.log('[Ads] Completed ad', i + 1);
-        current = i + 1;
-        updateDots();
-        if (current < TOTAL) await new Promise(r => setTimeout(r, 800));
-      }
+      setBtn('<span class="loader"></span> Loading 2 Ads...', true);
+      console.log('[Ads] Starting inApp ads count:', TOTAL);
+      await showInAppAds();
+      console.log('[Ads] InApp ads completed');
+      current = TOTAL;
+      updateDots();
     } catch (e) {
       console.error(e);
       err.textContent = e.message || 'Ad failed. Please try again.';
