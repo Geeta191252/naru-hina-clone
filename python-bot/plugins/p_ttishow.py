@@ -160,21 +160,31 @@ async def re_enable_chat(bot, message):
     await message.reply("Chat Successfully re-enabled")
 
 async def _get_db_usage(db_handle):
-    """Return media collection usage only, not whole DB/cluster usage."""
+    """Return ACTUAL Atlas storage usage (sizeOnDisk) for the cluster.
+    Atlas free tier 512 MB limit counts physical storageSize on disk, not
+    logical dataSize. We sum storageSize + totalIndexSize across ALL
+    collections in the database — this matches what Atlas dashboard shows.
+    """
     import os as _os
     quota_mb = int(_os.environ.get('DB_QUOTA_MB', '512'))
     quota_bytes = quota_mb * 1024 * 1024
     try:
-        stats = await db_handle.command("collStats", COLLECTION_NAME)
-        # Only count the bot media collection. dbStats/listDatabases can include
-        # other collections, old deleted storage, or cluster-level overhead.
-        data_size = int(stats.get('size', 0) or 0)
-        index_size = int(stats.get('totalIndexSize', 0) or 0)
-        used = data_size + index_size
+        # dbStats returns physical on-disk usage including all collections,
+        # indexes, and free-list (deleted-but-not-reclaimed) space — exactly
+        # what Atlas measures against the 512 MB quota.
+        stats = await db_handle.command("dbStats")
+        storage = int(stats.get('storageSize', 0) or 0)
+        index_size = int(stats.get('indexSize', 0) or 0)
+        used = storage + index_size
         free = max(quota_bytes - used, 0)
+        LOGGER.info(
+            f"[STATS] db={db_handle.name} storageSize={storage} "
+            f"indexSize={index_size} dataSize={stats.get('dataSize')} "
+            f"objects={stats.get('objects')}"
+        )
         return used, free, quota_bytes
     except Exception as e:
-        LOGGER.error(f"_get_db_usage collStats error: {e}")
+        LOGGER.error(f"_get_db_usage dbStats error: {e}")
         return 0, quota_bytes, quota_bytes
 
 
