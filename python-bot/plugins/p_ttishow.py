@@ -160,26 +160,23 @@ async def re_enable_chat(bot, message):
     await message.reply("Chat Successfully re-enabled")
 
 async def _get_db_usage(db_handle):
-    """Return ACTUAL Atlas storage usage (sizeOnDisk) for the cluster.
-    Atlas free tier 512 MB limit counts physical storageSize on disk, not
-    logical dataSize. We sum storageSize + totalIndexSize across ALL
-    collections in the database — this matches what Atlas dashboard shows.
+    """Return Atlas-dashboard-matching usage for the database.
+    Atlas free tier dashboard shows 'Data Size' = logical dataSize
+    (uncompressed). We mirror that so /stats matches what user sees on
+    cloud.mongodb.com.
     """
     import os as _os
     quota_mb = int(_os.environ.get('DB_QUOTA_MB', '512'))
     quota_bytes = quota_mb * 1024 * 1024
     try:
-        # dbStats returns physical on-disk usage including all collections,
-        # indexes, and free-list (deleted-but-not-reclaimed) space — exactly
-        # what Atlas measures against the 512 MB quota.
         stats = await db_handle.command("dbStats")
-        storage = int(stats.get('storageSize', 0) or 0)
-        index_size = int(stats.get('indexSize', 0) or 0)
-        used = storage + index_size
+        # Atlas "Data Size" graph = dataSize (logical/uncompressed).
+        used = int(stats.get('dataSize', 0) or 0)
         free = max(quota_bytes - used, 0)
         LOGGER.info(
-            f"[STATS] db={db_handle.name} storageSize={storage} "
-            f"indexSize={index_size} dataSize={stats.get('dataSize')} "
+            f"[STATS] db={db_handle.name} dataSize={used} "
+            f"storageSize={stats.get('storageSize')} "
+            f"indexSize={stats.get('indexSize')} "
             f"objects={stats.get('objects')}"
         )
         return used, free, quota_bytes
