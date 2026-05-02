@@ -51,7 +51,7 @@ COLLECTION_NAME = environ.get('COLLECTION_NAME', 'mehar')
 MULTIPLE_DB = is_enabled(os.environ.get('MULTIPLE_DB', "True"), True) # Type True For Turn On MULTIPLE DB FUNTION 
 DATABASE_URI2 = environ.get('DATABASE_URI2', "")
 DATABASE_URI3 = environ.get('DATABASE_URI3', "")
-DB_CHANGE_LIMIT = int(environ.get('DB_CHANGE_LIMIT', "257")) 
+DB_CHANGE_LIMIT = int(environ.get('DB_CHANGE_LIMIT', "480")) 
 
 GRP_LNK = environ.get('GRP_LNK', 'https://t.me/movie_hd_hub15')
 CHNL_LNK = environ.get('CHNL_LNK', 'https://t.me/+tgPf04FXMOllMWVl')
