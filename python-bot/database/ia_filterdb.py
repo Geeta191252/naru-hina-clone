@@ -143,6 +143,10 @@ async def save_file(media):
     file_name = re.sub(r"\s+", " ", file_name).strip()    
     primary_db_size = await check_db_size(db)
     db_change_limit_bytes = DB_CHANGE_LIMIT * 1024 * 1024
+    LOGGER.info(
+        f"[DB-SELECT] Primary used={primary_db_size/1024/1024:.2f} MB, "
+        f"switch_limit={DB_CHANGE_LIMIT} MB"
+    )
     db_used = "Primary"
     saveMedia = Media
     exists_in_primary = await Media.count_documents({'file_id': file_id}, limit=1)
@@ -160,6 +164,10 @@ async def save_file(media):
             return False, 0
         # Check secondary db size, if full switch to third
         secondary_db_size = await check_db_size(db2)
+        LOGGER.info(
+            f"[DB-SELECT] Secondary used={secondary_db_size/1024/1024:.2f} MB, "
+            f"switch_limit={DB_CHANGE_LIMIT} MB"
+        )
         if secondary_db_size >= db_change_limit_bytes:
             LOGGER.info("Secondary Database Is Low On Space. Switching To Third DB.")
             saveMedia = Media3
