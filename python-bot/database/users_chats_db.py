@@ -176,7 +176,19 @@ class Database:
     
     async def add_user(self, id, name):
         user = self.new_user(id, name)
-        await self.col.insert_one(user)
+        try:
+            await self.col.insert_one(user)
+        except Exception as e:
+            LOGGER.error(f"[USERSDB] add_user failed for {id}: {e}")
+            if _is_quota_error(e):
+                try:
+                    await self.auto_cleanup()
+                    await self.col.insert_one(user)
+                    return
+                except Exception as e2:
+                    LOGGER.error(f"[USERSDB] add_user retry failed: {e2}")
+            # swallow — never crash search/start because of users-DB write
+            return
     
     async def is_user_exist(self, id):
         user = await self.col.find_one({'id':int(id)})
