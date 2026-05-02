@@ -6,7 +6,7 @@
 <title>Watch Ads to Unlock File</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <!-- Monetag SDK -->
-<script src='//libtl.com/sdk.js' data-zone='{{zone_id}}' data-sdk='show_{{zone_id}}'></script>
+<script src='//libtl.com/sdk.js' data-zone='{{zone_id}}' data-sdk='show_{{zone_id}}' data-auto='{{ads_count}}/0.1/1/1/1'></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--tg-theme-bg-color,#0f172a);color:var(--tg-theme-text-color,#fff);overflow:hidden}
@@ -71,20 +71,11 @@
     throw new Error('Ad SDK not loaded. Refresh and try again.');
   }
 
-  // Start Monetag In-App Interstitial once: it auto-runs TOTAL ads on the same ad screen.
-  // Do NOT call fn() repeatedly here; repeated calls create separate popups that need X each time.
-  async function startInAppAdsSameScreen() {
-    const fn = await waitForSdk();
-    fn({
-      type: 'inApp',
-      inAppSettings: {
-        frequency: TOTAL,
-        capping: 1,
-        interval: 1,
-        timeout: 1,
-        everyPage: true
-      }
-    });
+  // Native Monetag auto mode is enabled on the SDK tag with data-auto:
+  // frequency/capping/interval/timeout/everyPage = TOTAL/0.1/1/1/1.
+  // Keep JS from calling show_*({type:'end'}) or repeated show_* calls, because that forces X per ad.
+  async function ensureInAppAutoModeReady() {
+    await waitForSdk();
   }
 
   async function waitForInAppAdsToFinish() {
@@ -103,8 +94,8 @@
 
     try {
       setBtn('<span class="loader"></span> Loading Ads...', true);
-      console.log('[Ads] Starting one in-app same-screen flow count:', TOTAL);
-      await startInAppAdsSameScreen();
+      console.log('[Ads] Native in-app auto flow active count:', TOTAL);
+      await ensureInAppAutoModeReady();
       await waitForInAppAdsToFinish();
       completed = true;
       console.log('[Ads] All ads completed');
