@@ -236,7 +236,7 @@ async def get_stats(bot, message):
         except Exception as e:
             LOGGER.error(f"Media count error: {e}")
             file1 = 0
-        db_size, free, _quota = await _get_db_usage(db_stats)
+        db_size, free, quota = await _get_db_usage(db_stats)
 
         uptime = get_readable_time(time() - botStartTime)
         ram = psutil.virtual_memory().percent
@@ -245,7 +245,7 @@ async def get_stats(bot, message):
         if MULTIPLE_DB == False:
             await SilentXBotz.edit(script.STATUS_TXT.format(
                 total_users, totl_chats, premium, file1,
-                get_size(db_size), get_size(free), uptime, ram, cpu))
+                _format_quota_usage(db_size, quota), get_size(free), uptime, ram, cpu))
             return
 
         # ----- Secondary DB ----- (alag Atlas account/cluster)
@@ -254,7 +254,7 @@ async def get_stats(bot, message):
         except Exception as e:
             LOGGER.error(f"Media2 count error: {e}")
             file2 = 0
-        db2_size, free2, _q2 = await _get_db_usage(db2_stats)
+        db2_size, free2, quota2 = await _get_db_usage(db2_stats)
 
         # ----- Third DB -----
         # Agar DATABASE_URI3 set nahi hai to info.py usko DATABASE_URI2 bana deta hai.
@@ -265,14 +265,15 @@ async def get_stats(bot, message):
             except Exception as e:
                 LOGGER.error(f"Media3 count error: {e}")
                 file3 = 0
-            db3_size, free3, _q3 = await _get_db_usage(db3_stats)
+            db3_size, free3, quota3 = await _get_db_usage(db3_stats)
         else:
-            file3, db3_size, free3 = 0, 0, _db_quota_bytes()
+            quota3 = _db_quota_bytes()
+            file3, db3_size, free3 = 0, 0, quota3
 
         await SilentXBotz.edit(script.MULTI_STATUS_TXT.format(
-            total_users, totl_chats, premium, file1, get_size(db_size), get_size(free),
-            file2, get_size(db2_size), get_size(free2),
-            file3, get_size(db3_size), get_size(free3),
+            total_users, totl_chats, premium, file1, _format_quota_usage(db_size, quota), get_size(free),
+            file2, _format_quota_usage(db2_size, quota2), get_size(free2),
+            file3, _format_quota_usage(db3_size, quota3), get_size(free3),
             uptime, ram, cpu, (int(file1) + int(file2) + int(file3))
         ))
     except Exception as e:
