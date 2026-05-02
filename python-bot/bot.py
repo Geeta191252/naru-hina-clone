@@ -67,10 +67,24 @@ async def SilentXBotz_start():
     b_users, b_chats = await db.get_banned()
     temp.BANNED_USERS = b_users
     temp.BANNED_CHATS = b_chats
-    await Media.ensure_indexes()
+
+    # ===== AUTO CLEANUP: Free space if any DB is near full BEFORE creating indexes =====
+    try:
+        await auto_cleanup_dbs()
+    except Exception as e:
+        LOGGER.error(f"[STARTUP CLEANUP] Failed: {e}")
+
+    # Wrap ensure_indexes to survive 'over space quota' errors
+    try:
+        await Media.ensure_indexes()
+    except Exception as e:
+        LOGGER.error(f"[ensure_indexes Media] {e} — continuing without rebuilding indexes")
     if MULTIPLE_DB:
-        await Media2.ensure_indexes()
-        LOGGER.info("Multiple Database Mode On. Now Files Will Be Save In Second DB If First DB Is Full")
+        try:
+            await Media2.ensure_indexes()
+            LOGGER.info("Multiple Database Mode On. Now Files Will Be Save In Second DB If First DB Is Full")
+        except Exception as e:
+            LOGGER.error(f"[ensure_indexes Media2] {e} — continuing")
     else:
         LOGGER.info("Single DB Mode On ! Files Will Be Save In First Database")
     me = await SilentX.get_me()
