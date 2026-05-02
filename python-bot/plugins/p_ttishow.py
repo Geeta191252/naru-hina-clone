@@ -159,25 +159,38 @@ async def re_enable_chat(bot, message):
     temp.BANNED_CHATS.remove(int(chat_))
     await message.reply("Chat Successfully re-enabled")
 
+def _is_user_database(name):
+    return name not in {'admin', 'local', 'config'}
+
+
 async def _get_db_usage(db_handle):
-    """Return Atlas-dashboard-matching usage for the database.
-    Atlas free tier dashboard shows 'Data Size' = logical dataSize
-    (uncompressed). We mirror that so /stats matches what user sees on
-    cloud.mongodb.com.
+    """Return Atlas cluster/account Data Size.
+    Atlas cluster card shows total Data Size for the whole MongoDB account,
+    not only DATABASE_NAME. Sum all non-system database dataSize values so
+    /stats matches the MongoDB Atlas screenshot.
     """
     import os as _os
     quota_mb = int(_os.environ.get('DB_QUOTA_MB', '512'))
     quota_bytes = quota_mb * 1024 * 1024
     try:
-        stats = await db_handle.command("dbStats")
-        # Atlas "Data Size" graph = dataSize (logical/uncompressed).
-        used = int(stats.get('dataSize', 0) or 0)
+        try:
+            db_names = [name for name in await db_handle.client.list_database_names() if _is_user_database(name)]
+        except Exception as e:
+            LOGGER.error(f"_get_db_usage list databases error for {db_handle.name}: {e}")
+            db_names = [db_handle.name]
+
+        used = 0
+        details = []
+        for name in db_names:
+            stats = await db_handle.client[name].command("dbStats")
+            data_size = int(stats.get('dataSize', 0) or 0)
+            used += data_size
+            details.append(f"{name}={data_size}")
+
         free = max(quota_bytes - used, 0)
         LOGGER.info(
-            f"[STATS] db={db_handle.name} dataSize={used} "
-            f"storageSize={stats.get('storageSize')} "
-            f"indexSize={stats.get('indexSize')} "
-            f"objects={stats.get('objects')}"
+            f"[STATS] account_for={db_handle.name} cluster_dataSize={used} "
+            f"databases=({', '.join(details)})"
         )
         return used, free, quota_bytes
     except Exception as e:
