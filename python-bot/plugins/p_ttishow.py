@@ -163,14 +163,18 @@ def _is_user_database(name):
     return name not in {'admin', 'local', 'config'}
 
 
+def _db_quota_bytes():
+    import os as _os
+    quota_mb = int(_os.environ.get('DB_QUOTA_MB', '512'))
+    return quota_mb * 1024 * 1024
+
+
 async def _get_db_usage(db_handle):
     """Return Atlas dashboard Data Size for this MongoDB account/cluster.
     MongoDB Atlas shows logical Data Size, which comes from dbStats dataSize.
     Sum all non-system databases in the same account so /stats matches Atlas.
     """
-    import os as _os
-    quota_mb = int(_os.environ.get('DB_QUOTA_MB', '512'))
-    quota_bytes = quota_mb * 1024 * 1024
+    quota_bytes = _db_quota_bytes()
     try:
         try:
             db_names = [name for name in await db_handle.client.list_database_names() if _is_user_database(name)]
@@ -261,7 +265,9 @@ async def get_stats(bot, message):
             file2 = 0
         db2_size, free2, _q2 = await _get_db_usage(db2_stats)
 
-        # ----- Third DB ----- (original logic — DB3 ko nahi chheda)
+        # ----- Third DB -----
+        # Agar DATABASE_URI3 set nahi hai to info.py usko DATABASE_URI2 bana deta hai.
+        # Aise case me DB2 ka size DB3 me dikhana galat hai, isliye DB3 empty quota dikhaye.
         if _third_db_enabled():
             try:
                 file3 = await Media3.count_documents()
@@ -270,7 +276,7 @@ async def get_stats(bot, message):
                 file3 = 0
             db3_size, free3, _q3 = await _get_db_usage(db3_stats)
         else:
-            file3, db3_size, free3 = 0, 0, 0
+            file3, db3_size, free3 = 0, 0, _db_quota_bytes()
 
         await SilentXBotz.edit(script.MULTI_STATUS_TXT.format(
             total_users, totl_chats, premium, file1, get_size(db_size), get_size(free),
