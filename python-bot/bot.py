@@ -64,6 +64,18 @@ async def cleanup_loop():
                 LOGGER.info(f"[CLEANUP-LOOP] Removed {d2} old user docs from topdb")
         except Exception as e:
             LOGGER.error(f"[CLEANUP-LOOP topdb] {e}")
+        try:
+            d3 = await db.auto_cleanup()
+            if d3:
+                LOGGER.info(f"[CLEANUP-LOOP] Cleaned {d3} junk docs from users-DB")
+        except Exception as e:
+            LOGGER.error(f"[CLEANUP-LOOP usersdb] {e}")
+        try:
+            d4 = await _usersdb2_for_cleanup.auto_cleanup()
+            if d4:
+                LOGGER.info(f"[CLEANUP-LOOP] Cleaned {d4} junk docs from users-DB2")
+        except Exception as e:
+            LOGGER.error(f"[CLEANUP-LOOP usersdb2] {e}")
         await asyncio.sleep(1800)  # every 30 min
 
 
