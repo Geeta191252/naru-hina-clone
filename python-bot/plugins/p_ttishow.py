@@ -178,6 +178,13 @@ async def _get_db_usage(db_handle):
         return 0, quota_bytes, quota_bytes
 
 
+def _same_mongo_db(left, right):
+    try:
+        return left.client.address == right.client.address and left.name == right.name
+    except Exception:
+        return left is right
+
+
 @Client.on_message(filters.command('stats') & filters.user(ADMINS))
 async def get_stats(bot, message):
     SilentXBotz = await message.reply('ᴀᴄᴄᴇꜱꜱɪɴɢ ꜱᴛᴀᴛᴜꜱ ᴅᴇᴛᴀɪʟꜱ...')
@@ -213,12 +220,16 @@ async def get_stats(bot, message):
         db2_size, free2, _q2 = await _get_db_usage(db2_stats)
 
         # ----- Third DB -----
-        try:
-            file3 = await Media3.count_documents()
-        except Exception as e:
-            LOGGER.error(f"Media3 count error: {e}")
-            file3 = 0
-        db3_size, free3, _q3 = await _get_db_usage(db3_stats)
+        has_third_db = not _same_mongo_db(db2_stats, db3_stats)
+        if has_third_db:
+            try:
+                file3 = await Media3.count_documents()
+            except Exception as e:
+                LOGGER.error(f"Media3 count error: {e}")
+                file3 = 0
+            db3_size, free3, _q3 = await _get_db_usage(db3_stats)
+        else:
+            file3, db3_size, free3 = 0, 0, 0
 
         await SilentXBotz.edit(script.MULTI_STATUS_TXT.format(
             total_users, totl_chats, premium, file1, get_size(db_size), get_size(free),
