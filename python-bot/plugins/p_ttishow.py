@@ -226,15 +226,21 @@ async def get_stats(bot, message):
             return
 
         # ----- Secondary DB -----
-        try:
-            file2 = await Media2.count_documents()
-        except Exception as e:
-            LOGGER.error(f"Media2 count error: {e}")
-            file2 = 0
-        db2_size, free2, _q2 = await _get_db_usage(db2_stats)
+        # If DB2 points to the SAME cluster+database as DB1, it's not a real
+        # second DB — show zeros instead of duplicating DB1's numbers.
+        if _same_mongo_db(db_stats, db2_stats):
+            LOGGER.info("[STATS] DB2 same as DB1 — reporting empty.")
+            file2, db2_size, free2 = 0, 0, 512 * 1024 * 1024
+        else:
+            try:
+                file2 = await Media2.count_documents()
+            except Exception as e:
+                LOGGER.error(f"Media2 count error: {e}")
+                file2 = 0
+            db2_size, free2, _q2 = await _get_db_usage(db2_stats)
 
         # ----- Third DB -----
-        if _third_db_enabled():
+        if _third_db_enabled() and not _same_mongo_db(db_stats, db3_stats) and not _same_mongo_db(db2_stats, db3_stats):
             try:
                 file3 = await Media3.count_documents()
             except Exception as e:
@@ -242,7 +248,7 @@ async def get_stats(bot, message):
                 file3 = 0
             db3_size, free3, _q3 = await _get_db_usage(db3_stats)
         else:
-            file3, db3_size, free3 = 0, 0, 0
+            file3, db3_size, free3 = 0, 0, 512 * 1024 * 1024
 
         await SilentXBotz.edit(script.MULTI_STATUS_TXT.format(
             total_users, totl_chats, premium, file1, get_size(db_size), get_size(free),
