@@ -6,7 +6,7 @@
 <title>Watch Ads to Unlock File</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <!-- Monetag SDK -->
-<script src='//libtl.com/sdk.js' data-zone='{{zone_id}}' data-sdk='show_{{zone_id}}' data-auto='{{ads_count}}/0.1/30/5/0'></script>
+<script src='//libtl.com/sdk.js' data-zone='{{zone_id}}' data-sdk='show_{{zone_id}}'></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--tg-theme-bg-color,#0f172a);color:var(--tg-theme-text-color,#fff);overflow:hidden}
@@ -42,6 +42,8 @@
   const VERIFY_URL = "{{verify_url}}";
   const REDIRECT_URL = "{{redirect_url}}";
   const ZONE_ID = "{{zone_id}}";
+  const INAPP_INTERVAL_SECONDS = 1;
+  const INAPP_TIMEOUT_SECONDS = 0;
 
   let started = false;
   let completed = false;
@@ -71,22 +73,29 @@
     throw new Error('Ad SDK not loaded. Refresh and try again.');
   }
 
-  // Native Monetag auto mode is enabled on the SDK tag with data-auto:
-  // frequency/capping/interval/timeout/everyPage = TOTAL/0.1/30/5/0.
-  // Do not manually call show_* for each ad; Monetag's in-app mode schedules
-  // all ads in the same Mini App screen/session and avoids our old X-per-ad loop.
-  // Keep JS from calling show_*({type:'end'}) or repeated show_* calls, because that forces X per ad.
+  // Start Monetag In-App once only. Frequency=TOTAL and 1s interval schedules
+  // the 3 ads in the same Mini App session instead of opening reward ads one by one.
   async function ensureInAppAutoModeReady() {
-    await waitForSdk();
+    const showAd = await waitForSdk();
+    await showAd({
+      type: 'inApp',
+      inAppSettings: {
+        frequency: TOTAL,
+        capping: 0.1,
+        interval: INAPP_INTERVAL_SECONDS,
+        timeout: INAPP_TIMEOUT_SECONDS,
+        everyPage: false
+      }
+    });
   }
 
   async function waitForInAppAdsToFinish() {
-    const firstAdDelaySeconds = 5;
-    const sdkIntervalSeconds = 30;
+    const firstAdDelaySeconds = INAPP_TIMEOUT_SECONDS;
+    const sdkIntervalSeconds = INAPP_INTERVAL_SECONDS;
     const averageAdViewSeconds = 20;
     const safetySeconds = 12;
     const estimatedSeconds = firstAdDelaySeconds + (TOTAL * averageAdViewSeconds) + ((TOTAL - 1) * sdkIntervalSeconds) + safetySeconds;
-    await sleep(Math.max(estimatedSeconds, 90) * 1000);
+    await sleep(Math.max(estimatedSeconds, 75) * 1000);
   }
 
   async function handleClick() {
@@ -100,7 +109,7 @@
 
     try {
       setBtn('<span class="loader"></span> Loading Ads...', true);
-      console.log('[Ads] Native in-app auto flow active count:', TOTAL);
+      console.log('[Ads] Native in-app auto flow active count:', TOTAL, 'interval:', INAPP_INTERVAL_SECONDS);
       await ensureInAppAutoModeReady();
       await waitForInAppAdsToFinish();
       completed = true;
