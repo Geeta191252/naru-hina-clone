@@ -160,26 +160,23 @@ async def re_enable_chat(bot, message):
     await message.reply("Chat Successfully re-enabled")
 
 async def _get_db_usage(db_handle):
-    """Return ACTUAL Atlas storage usage (sizeOnDisk) for the cluster.
-    Atlas free tier 512 MB limit counts physical storageSize on disk, not
-    logical dataSize. We sum storageSize + totalIndexSize across ALL
-    collections in the database — this matches what Atlas dashboard shows.
+    """Return Atlas-dashboard-matching usage for the database.
+    Atlas free tier dashboard shows 'Data Size' = logical dataSize
+    (uncompressed). We mirror that so /stats matches what user sees on
+    cloud.mongodb.com.
     """
     import os as _os
     quota_mb = int(_os.environ.get('DB_QUOTA_MB', '512'))
     quota_bytes = quota_mb * 1024 * 1024
     try:
-        # dbStats returns physical on-disk usage including all collections,
-        # indexes, and free-list (deleted-but-not-reclaimed) space — exactly
-        # what Atlas measures against the 512 MB quota.
         stats = await db_handle.command("dbStats")
-        storage = int(stats.get('storageSize', 0) or 0)
-        index_size = int(stats.get('indexSize', 0) or 0)
-        used = storage + index_size
+        # Atlas "Data Size" graph = dataSize (logical/uncompressed).
+        used = int(stats.get('dataSize', 0) or 0)
         free = max(quota_bytes - used, 0)
         LOGGER.info(
-            f"[STATS] db={db_handle.name} storageSize={storage} "
-            f"indexSize={index_size} dataSize={stats.get('dataSize')} "
+            f"[STATS] db={db_handle.name} dataSize={used} "
+            f"storageSize={stats.get('storageSize')} "
+            f"indexSize={stats.get('indexSize')} "
             f"objects={stats.get('objects')}"
         )
         return used, free, quota_bytes
@@ -242,22 +239,16 @@ async def get_stats(bot, message):
                 get_size(db_size), get_size(free), uptime, ram, cpu))
             return
 
-        # ----- Secondary DB -----
-        # If DB2 points to the SAME cluster+database as DB1, it's not a real
-        # second DB — show zeros instead of duplicating DB1's numbers.
-        if _same_mongo_db(db_stats, db2_stats):
-            LOGGER.info("[STATS] DB2 same as DB1 — reporting empty.")
-            file2, db2_size, free2 = 0, 0, 512 * 1024 * 1024
-        else:
-            try:
-                file2 = await Media2.count_documents()
-            except Exception as e:
-                LOGGER.error(f"Media2 count error: {e}")
-                file2 = 0
-            db2_size, free2, _q2 = await _get_db_usage(db2_stats)
+        # ----- Secondary DB ----- (alag Atlas account/cluster)
+        try:
+            file2 = await Media2.count_documents()
+        except Exception as e:
+            LOGGER.error(f"Media2 count error: {e}")
+            file2 = 0
+        db2_size, free2, _q2 = await _get_db_usage(db2_stats)
 
-        # ----- Third DB -----
-        if _third_db_enabled() and not _same_mongo_db(db_stats, db3_stats) and not _same_mongo_db(db2_stats, db3_stats):
+        # ----- Third DB ----- (original logic — DB3 ko nahi chheda)
+        if _third_db_enabled():
             try:
                 file3 = await Media3.count_documents()
             except Exception as e:
@@ -265,7 +256,7 @@ async def get_stats(bot, message):
                 file3 = 0
             db3_size, free3, _q3 = await _get_db_usage(db3_stats)
         else:
-            file3, db3_size, free3 = 0, 0, 512 * 1024 * 1024
+            file3, db3_size, free3 = 0, 0, 0
 
         await SilentXBotz.edit(script.MULTI_STATUS_TXT.format(
             total_users, totl_chats, premium, file1, get_size(db_size), get_size(free),
