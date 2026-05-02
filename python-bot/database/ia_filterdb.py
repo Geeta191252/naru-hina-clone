@@ -72,8 +72,11 @@ async def check_db_size(silentdb):
 
 # ===== AUTO CLEANUP: Delete oldest files when DB is near full =====
 # Atlas free tier = 512 MB. Cleanup trigger threshold (default 480 MB)
-DB_CLEANUP_THRESHOLD_MB = int(environ.get('DB_CLEANUP_THRESHOLD_MB', '480')) if (environ := __import__('os').environ) else 480
-DB_CLEANUP_BATCH = int(__import__('os').environ.get('DB_CLEANUP_BATCH', '500'))  # delete 500 oldest at a time
+# ===== AUTO CLEANUP: Delete oldest files when DB is near full =====
+# Atlas free tier = 512 MB. Cleanup trigger threshold (default 480 MB)
+import os as _os
+DB_CLEANUP_THRESHOLD_MB = int(_os.environ.get('DB_CLEANUP_THRESHOLD_MB', '480'))
+DB_CLEANUP_BATCH = int(_os.environ.get('DB_CLEANUP_BATCH', '500'))  # delete 500 oldest at a time
 
 async def _cleanup_collection(silentdb, collection_name, label):
     """Delete oldest documents from a collection until size drops below threshold."""
