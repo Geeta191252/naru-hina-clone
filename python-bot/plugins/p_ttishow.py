@@ -164,10 +164,10 @@ def _is_user_database(name):
 
 
 async def _get_db_usage(db_handle):
-    """Return Atlas cluster/account Data Size.
-    Atlas cluster card shows total Data Size for the whole MongoDB account,
-    not only DATABASE_NAME. Sum all non-system database dataSize values so
-    /stats matches the MongoDB Atlas screenshot.
+    """Return Atlas cluster/account used storage.
+    Atlas free-tier usage is closest to dbStats totalSize (storageSize +
+    indexSize), not only dataSize. Sum all non-system databases in the same
+    MongoDB account/cluster so /stats matches the Atlas dashboard.
     """
     import os as _os
     quota_mb = int(_os.environ.get('DB_QUOTA_MB', '512'))
@@ -183,13 +183,17 @@ async def _get_db_usage(db_handle):
         details = []
         for name in db_names:
             stats = await db_handle.client[name].command("dbStats")
-            data_size = int(stats.get('dataSize', 0) or 0)
-            used += data_size
-            details.append(f"{name}={data_size}")
+            total_size = int(stats.get('totalSize', 0) or 0)
+            if not total_size:
+                total_size = int(stats.get('storageSize', 0) or 0) + int(stats.get('indexSize', 0) or 0)
+            used += total_size
+            details.append(
+                f"{name}=total:{total_size},storage:{int(stats.get('storageSize', 0) or 0)},index:{int(stats.get('indexSize', 0) or 0)}"
+            )
 
         free = max(quota_bytes - used, 0)
         LOGGER.info(
-            f"[STATS] account_for={db_handle.name} cluster_dataSize={used} "
+            f"[STATS] account_for={db_handle.name} cluster_totalSize={used} "
             f"databases=({', '.join(details)})"
         )
         return used, free, quota_bytes
