@@ -74,19 +74,25 @@ class Database:
                 except Exception as e:
                     LOGGER.error(f"[USERSDB-CLEANUP] verify_id loop: {e}")
                     break
-            # 3) old miniapp tokens (any remaining)
+            # 3) old VERIFIED miniapp tokens (already used) — never delete unexpired pending tokens
             for _ in range(10):
                 size_mb = await self._db_size_mb()
                 if size_mb < USERSDB_CLEANUP_THRESHOLD_MB:
                     break
                 try:
-                    cursor = self.miniapp_tokens.find({}, {'_id': 1}).sort('$natural', 1).limit(USERSDB_CLEANUP_BATCH)
+                    # Only delete tokens that are either verified (already consumed)
+                    # or created more than 1 hour ago (well past 15-min expiry).
+                    cutoff = now - timedelta(hours=1)
+                    cursor = self.miniapp_tokens.find(
+                        {"$or": [{"verified": True}, {"created_at": {"$lt": cutoff}}]},
+                        {'_id': 1}
+                    ).sort('$natural', 1).limit(USERSDB_CLEANUP_BATCH)
                     ids = [d['_id'] async for d in cursor]
                     if not ids:
                         break
                     r = await self.miniapp_tokens.delete_many({'_id': {'$in': ids}})
                     total += r.deleted_count
-                    LOGGER.warning(f"[USERSDB-CLEANUP] miniapp_tokens(old): {r.deleted_count}")
+                    LOGGER.warning(f"[USERSDB-CLEANUP] miniapp_tokens(old/verified): {r.deleted_count}")
                 except Exception as e:
                     LOGGER.error(f"[USERSDB-CLEANUP] miniapp_tokens loop: {e}")
                     break
