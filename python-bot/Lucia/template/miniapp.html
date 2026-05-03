@@ -167,8 +167,10 @@
     });
   }
 
-  // Adsterra ad shown INSIDE the mini app via an iframe overlay.
-  // User must wait a countdown before they can continue.
+  // Generic in-app sponsored ad overlay (iframe + countdown + fallback).
+  async function showInAppSponsoredAd(rawUrl, label) {
+    return new Promise((resolve) => {
+      const url = rawUrl + (rawUrl.includes('?') ? '&' : '?') + 'var=' + encodeURIComponent(TOKEN + '_' + label);
   async function showExtraAdsterraAd() {
     return new Promise((resolve) => {
       const url = EXTRA_ADSTERRA_LINK + (EXTRA_ADSTERRA_LINK.includes('?') ? '&' : '?') + 'var=' + encodeURIComponent(TOKEN + '_extra');
