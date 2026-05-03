@@ -232,7 +232,32 @@
   }
 
   async function showExtraAdsterraAd() { return showInAppSponsoredAd(EXTRA_ADSTERRA_LINK, 'extra', 'Adsterra'); }
-  async function showExtraRichAdsAd() { return showInAppSponsoredAd(EXTRA_RICHADS_LINK, 'rich', 'RichAds'); }
+
+  // RichAds link is an XML feed redirect — iframe pe blank aata hai. Direct external open + countdown use karte hain.
+  async function showExtraRichAdsAd() {
+    return new Promise((resolve) => {
+      const url = EXTRA_RICHADS_LINK + (EXTRA_RICHADS_LINK.includes('?') ? '&' : '?') + 'var=' + encodeURIComponent(TOKEN + '_rich');
+      title.textContent = 'Sponsored Ad — RichAds';
+      subtitle.textContent = 'Tap below to open the ad. 15s baad wapas aakar Continue dabaayein.';
+      setBtn('🎬 Open RichAds Ad', false);
+      btn.onclick = () => {
+        if (tg && tg.openLink) { tg.openLink(url, { try_instant_view: false }); }
+        else { window.open(url, '_blank'); }
+        let secs = 15;
+        setBtn(`<span class="loader"></span> Wait ${secs}s...`, true);
+        const tick = setInterval(() => {
+          secs--;
+          if (secs > 0) {
+            setBtn(`<span class="loader"></span> Wait ${secs}s...`, true);
+          } else {
+            clearInterval(tick);
+            setBtn('✅ I watched the ad — Continue', false);
+            btn.onclick = () => resolve();
+          }
+        }, 1000);
+      };
+    });
+  }
 
   async function handleClick() {
     if (started) return;
