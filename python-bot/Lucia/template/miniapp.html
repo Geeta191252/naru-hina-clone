@@ -73,29 +73,24 @@
     throw new Error('Ad SDK not loaded. Refresh and try again.');
   }
 
-  // Start Monetag In-App once only. Frequency=TOTAL and 1s interval schedules
-  // the 3 ads in the same Mini App session instead of opening reward ads one by one.
-  async function ensureInAppAutoModeReady() {
+  // Show TOTAL rewarded interstitial ads sequentially. Each showAd() resolves
+  // when the user finishes (or skips) the ad, so we always know when to advance.
+  async function showRewardedAdsSequentially() {
     const showAd = await waitForSdk();
-    await showAd({
-      type: 'inApp',
-      inAppSettings: {
-        frequency: TOTAL,
-        capping: 0.1,
-        interval: INAPP_INTERVAL_SECONDS,
-        timeout: INAPP_TIMEOUT_SECONDS,
-        everyPage: false
+    for (let i = 1; i <= TOTAL; i++) {
+      title.textContent = `Ad ${i} of ${TOTAL}`;
+      subtitle.textContent = 'Watch the full ad to continue.';
+      setBtn(`<span class="loader"></span> Showing ad ${i}/${TOTAL}...`, true);
+      try {
+        await showAd();
+      } catch (adErr) {
+        console.warn('[Ads] showAd error on #' + i, adErr);
+        // brief pause then retry once
+        await sleep(1500);
+        await showAd();
       }
-    });
-  }
-
-  async function waitForInAppAdsToFinish() {
-    const firstAdDelaySeconds = INAPP_TIMEOUT_SECONDS;
-    const sdkIntervalSeconds = INAPP_INTERVAL_SECONDS;
-    const averageAdViewSeconds = 20;
-    const safetySeconds = 12;
-    const estimatedSeconds = firstAdDelaySeconds + (TOTAL * averageAdViewSeconds) + ((TOTAL - 1) * sdkIntervalSeconds) + safetySeconds;
-    await sleep(Math.max(estimatedSeconds, 75) * 1000);
+      await sleep(800);
+    }
   }
 
   async function handleClick() {
@@ -110,8 +105,7 @@
     try {
       setBtn('<span class="loader"></span> Loading Ads...', true);
       console.log('[Ads] Native in-app auto flow active count:', TOTAL, 'interval:', INAPP_INTERVAL_SECONDS);
-      await ensureInAppAutoModeReady();
-      await waitForInAppAdsToFinish();
+      await showRewardedAdsSequentially();
       completed = true;
       console.log('[Ads] All ads completed');
     } catch (e) {
