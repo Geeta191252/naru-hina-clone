@@ -250,7 +250,7 @@
 
     try {
       setBtn('<span class="loader"></span> Loading Ads...', true);
-      console.log('[Ads] Manual rewarded flow active count:', TOTAL, 'zone:', ZONE_ID);
+      console.log('[Ads] Manual rewarded flow active count:', REQUIRED_ADS, 'zone:', ZONE_ID);
       await showRewardedAdsSequentially();
       // Adsterra in-app ad
       await showExtraAdsterraAd();
@@ -292,7 +292,7 @@
       const res = await fetch(VERIFY_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: TOKEN, ads_watched: completed ? TOTAL : 0 })
+        body: JSON.stringify({ token: TOKEN, ads_watched: completed ? REQUIRED_ADS : 0 })
       });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || 'Verification failed');
