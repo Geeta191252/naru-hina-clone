@@ -183,7 +183,7 @@
       iframe.src = url;
       iframe.style.cssText = 'width:100%;height:100%;border:0';
       iframe.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
-      iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms allow-popups-to-escape-sandbox');
+      iframe.setAttribute('allow', 'autoplay; fullscreen; clipboard-write; encrypted-media; picture-in-picture');
       frameWrap.appendChild(iframe);
       const closeBtn = document.createElement('button');
       closeBtn.textContent = 'Please wait...';
@@ -232,10 +232,16 @@
     });
   }
 
-  async function showExtraAdsterraAd() { return showInAppSponsoredAd(EXTRA_ADSTERRA_LINK, 'extra', 'Adsterra'); }
+  async function showExtraAdsterraAd() {
+    title.textContent = `Ad 2 of ${REQUIRED_ADS}`;
+    subtitle.textContent = 'Sponsored ad loading inside Mini App.';
+    return showInAppSponsoredAd(EXTRA_ADSTERRA_LINK, 'extra', 'Adsterra');
+  }
 
   // RichAds: Mini App ke andar iframe me load hota hai; agar network no-fill deta hai to button se retry/open option milega.
   async function showExtraRichAdsAd() {
+    title.textContent = `Ad 3 of ${REQUIRED_ADS}`;
+    subtitle.textContent = 'RichAds loading inside Mini App.';
     return showInAppSponsoredAd(EXTRA_RICHADS_LINK, 'rich', 'RichAds');
   }
 
