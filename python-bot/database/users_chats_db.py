@@ -51,11 +51,11 @@ class Database:
             LOGGER.warning(f"[USERSDB-CLEANUP] size {size_mb:.1f} MB >= {USERSDB_CLEANUP_THRESHOLD_MB} MB. Cleaning junk collections...")
             total = 0
             now = datetime.datetime.now(pytz.timezone('Asia/Kolkata'))
-            # 1) expired miniapp tokens
+            # 1) miniapp_tokens are now stored in memory — wipe the entire DB collection
             try:
-                r = await self.miniapp_tokens.delete_many({'expires_at': {'$lt': now}})
+                r = await self.miniapp_tokens.delete_many({})
                 total += r.deleted_count
-                LOGGER.warning(f"[USERSDB-CLEANUP] expired miniapp_tokens: {r.deleted_count}")
+                LOGGER.warning(f"[USERSDB-CLEANUP] miniapp_tokens dropped: {r.deleted_count}")
             except Exception as e:
                 LOGGER.error(f"[USERSDB-CLEANUP] miniapp_tokens: {e}")
             # 2) old verify_id docs (batch oldest)
