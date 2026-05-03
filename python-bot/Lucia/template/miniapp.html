@@ -43,10 +43,14 @@
   const SDK_FN = 'show_' + ZONE_ID;
   // Multiple Monetag SDK CDN hosts. Some are blocked by ISPs/AdBlock — we try each.
   const SDK_HOSTS = ['libtl.com', 'doodiwom.com', 'tiwofey.com', 'arichoto.com'];
+  // Direct Link fallback (works on rooted phones / when SDK is blocked)
+  const DIRECT_LINK = 'https://omg10.com/4/10930676';
   let started = false;
   let completed = false;
   let sdkInjected = false;
   let sdkLoadError = '';
+  let directMode = false;
+  let directWatched = 0;
   const btn = document.getElementById('actionBtn');
   const err = document.getElementById('err');
   const title = document.getElementById('title');
