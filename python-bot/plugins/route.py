@@ -41,7 +41,8 @@ async def miniapp_page(request: web.Request):
 
     bot_username = (temp.U_NAME or SilentX.username or "").lstrip('@')
     redirect_url = f"https://t.me/{bot_username}?start=unlocked_{token}"
-    verify_url = f"{URL.rstrip('/')}/miniapp/verify"
+    current_host = request.headers.get("X-Forwarded-Host", request.host).split(",")[0].strip()
+    verify_url = f"https://{current_host}/miniapp/verify"
 
     with open("Lucia/template/miniapp.html") as f:
         template = jinja2.Template(f.read())
