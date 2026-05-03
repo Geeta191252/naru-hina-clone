@@ -136,12 +136,25 @@
       subtitle.textContent = 'Watch the full ad to continue.';
       setBtn(`<span class="loader"></span> Showing ad ${i}/${TOTAL}...`, true);
       try {
-        await showAd();
+        await withTimeout(
+          showAd({ type: 'preload', timeout: 8, ymid: TOKEN, requestVar: 'miniapp_unlock' }),
+          12000,
+          'Ad preload timeout'
+        );
+        await withTimeout(
+          showAd({ type: 'end', ymid: TOKEN, requestVar: 'miniapp_unlock' }),
+          90000,
+          'Ad timeout'
+        );
       } catch (adErr) {
         console.warn('[Ads] showAd error on #' + i, adErr);
         // brief pause then retry once
         await sleep(1500);
-        await showAd();
+        await withTimeout(
+          showAd({ type: 'end', ymid: TOKEN, requestVar: 'miniapp_unlock_retry' }),
+          90000,
+          'Ad retry timeout'
+        );
       }
       await sleep(800);
     }
@@ -173,9 +186,8 @@
     await finish();
   }
 
-  // Preload SDK only. Ads must be started by a real user tap, otherwise
-  // Telegram/Android WebView can block Monetag from opening the ad.
-  window.addEventListener('load', () => setTimeout(ensureSdkScript, 300));
+  // Load SDK early; ads still start only after a real user tap.
+  window.addEventListener('load', () => setTimeout(() => injectSdkScript().catch(e => console.warn('[Ads] preload failed:', e.message)), 300));
 
   async function finish() {
     setBtn('<span class="loader"></span> Verifying...', true);
