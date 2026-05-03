@@ -116,11 +116,28 @@ class Database:
             LOGGER.error(f"[USERSDB-CLEANUP] failed: {e}")
             return 0
 
+    # ====== Mini App tokens kept IN-MEMORY (not in DB) ======
+    # Reason: Atlas free tier (512 MB) frequently quota-locks the users-DB,
+    # which made `update_one` silently fail and produced "Link expired or invalid"
+    # the moment the user tapped "Watch ads & get file". Tokens only need to live
+    # for ~15 min, so a process-local dict is more than enough and is unaffected
+    # by DB size pressure.
+    _miniapp_mem = {}
+
+    @classmethod
+    def _miniapp_purge(cls):
+        now = datetime.datetime.now(pytz.timezone('Asia/Kolkata'))
+        dead = [k for k, v in cls._miniapp_mem.items() if v.get('expires_at') and v['expires_at'] < now]
+        for k in dead:
+            cls._miniapp_mem.pop(k, None)
+
     async def create_miniapp_token(self, token, user_id, grp_id, file_id, kind, expiry_seconds=900):
-        """Store a Mini App token. kind = 'sendall' or 'notcopy'."""
+        """Store a Mini App token in memory. kind = 'sendall' or 'notcopy'."""
         now = datetime.datetime.now(pytz.timezone('Asia/Kolkata'))
         expires = now + timedelta(seconds=expiry_seconds)
-        payload = {"$set": {
+        Database._miniapp_purge()
+        Database._miniapp_mem[token] = {
+            "_id": token,
             "user_id": int(user_id),
             "grp_id": int(grp_id) if grp_id else 0,
             "file_id": file_id,
@@ -129,27 +146,23 @@ class Database:
             "ads_watched": 0,
             "created_at": now,
             "expires_at": expires,
-        }}
+        }
+        # Best-effort: also clear any old DB copy so collection drains over time
         try:
-            await self.miniapp_tokens.update_one({"_id": token}, payload, upsert=True)
-        except Exception as e:
-            LOGGER.error(f"[USERSDB] create_miniapp_token failed: {e}")
-            if _is_quota_error(e):
-                try:
-                    await self.auto_cleanup()
-                    await self.miniapp_tokens.update_one({"_id": token}, payload, upsert=True)
-                except Exception as e2:
-                    LOGGER.error(f"[USERSDB] create_miniapp_token retry failed: {e2}")
+            await self.miniapp_tokens.delete_one({"_id": token})
+        except Exception:
+            pass
 
     async def get_miniapp_token(self, token):
-        return await self.miniapp_tokens.find_one({"_id": token})
+        Database._miniapp_purge()
+        return Database._miniapp_mem.get(token)
 
     async def mark_miniapp_verified(self, token, ads_watched):
-        await self.miniapp_tokens.update_one(
-            {"_id": token},
-            {"$set": {"verified": True, "ads_watched": int(ads_watched),
-                      "verified_at": datetime.datetime.now(pytz.timezone('Asia/Kolkata'))}}
-        )
+        info = Database._miniapp_mem.get(token)
+        if info:
+            info["verified"] = True
+            info["ads_watched"] = int(ads_watched)
+            info["verified_at"] = datetime.datetime.now(pytz.timezone('Asia/Kolkata'))
 
     async def find_join_req(self, id, chnl):
         chnl = str(chnl)
