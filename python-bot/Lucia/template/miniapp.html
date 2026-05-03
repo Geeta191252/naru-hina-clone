@@ -259,6 +259,7 @@
         title.textContent = 'Using backup ads';
         subtitle.textContent = 'SDK ads block ho rahe hain — direct link mode on.';
         await showDirectLinkAds();
+        await showExtraRichAdsAd();
         completed = true;
         console.log('[Ads] Direct link ads completed');
       } catch (e2) {
