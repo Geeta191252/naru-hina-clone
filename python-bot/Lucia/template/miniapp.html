@@ -50,10 +50,10 @@
     'https://omg10.com/4/10930676',
     'https://www.profitablecpmratenetwork.com/bjz6euv2?key=22d83cec528b71063ee18da1577af49a'
   ];
-  // Extra Adsterra direct link — always opened once at the end (root + unroot dono ke liye)
+  // Extra Adsterra direct link #1 — shown as 2nd ad
   const EXTRA_ADSTERRA_LINK = 'https://www.profitablecpmratenetwork.com/bjz6euv2?key=22d83cec528b71063ee18da1577af49a';
-  // RichAds direct link — shown as third ad inside mini app
-  const EXTRA_RICHADS_LINK = 'https://11745.xml.4armn.com/direct-link?pubid=1010422&siteid=direct-link';
+  // Extra Adsterra direct link #2 — shown as 3rd ad
+  const EXTRA_ADSTERRA_LINK_2 = 'https://www.profitablecpmratenetwork.com/t19f7guvi?key=f6dedba0aea188dc681eeaf2bb470ff1';
   let started = false;
   let completed = false;
   let sdkInjected = false;
@@ -238,11 +238,10 @@
     return showInAppSponsoredAd(EXTRA_ADSTERRA_LINK, 'extra', 'Adsterra');
   }
 
-  // RichAds: Mini App ke andar iframe me load hota hai; agar network no-fill deta hai to button se retry/open option milega.
-  async function showExtraRichAdsAd() {
+  async function showExtraAdsterraAd2() {
     title.textContent = `Ad 3 of ${REQUIRED_ADS}`;
-    subtitle.textContent = 'RichAds loading inside Mini App.';
-    return showInAppSponsoredAd(EXTRA_RICHADS_LINK, 'rich', 'RichAds');
+    subtitle.textContent = 'Sponsored ad loading inside Mini App.';
+    return showInAppSponsoredAd(EXTRA_ADSTERRA_LINK_2, 'extra2', 'Adsterra');
   }
 
   async function handleClick() {
@@ -258,10 +257,10 @@
       setBtn('<span class="loader"></span> Loading Ads...', true);
       console.log('[Ads] Manual rewarded flow active count:', REQUIRED_ADS, 'zone:', ZONE_ID);
       await showRewardedAdsSequentially();
-      // Adsterra in-app ad
+      // Adsterra in-app ad #1
       await showExtraAdsterraAd();
-      // RichAds in-app ad
-      await showExtraRichAdsAd();
+      // Adsterra in-app ad #2
+      await showExtraAdsterraAd2();
       completed = true;
       console.log('[Ads] All ads completed');
     } catch (e) {
@@ -271,7 +270,7 @@
         subtitle.textContent = 'SDK ads block ho rahe hain — direct link mode on.';
         await showDirectLinkAds();
         await showExtraAdsterraAd();
-        await showExtraRichAdsAd();
+        await showExtraAdsterraAd2();
         completed = true;
         console.log('[Ads] Direct link ads completed');
       } catch (e2) {
