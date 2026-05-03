@@ -105,8 +105,7 @@
     try {
       setBtn('<span class="loader"></span> Loading Ads...', true);
       console.log('[Ads] Native in-app auto flow active count:', TOTAL, 'interval:', INAPP_INTERVAL_SECONDS);
-      await ensureInAppAutoModeReady();
-      await waitForInAppAdsToFinish();
+      await showRewardedAdsSequentially();
       completed = true;
       console.log('[Ads] All ads completed');
     } catch (e) {
