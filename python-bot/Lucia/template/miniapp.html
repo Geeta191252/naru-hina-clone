@@ -148,10 +148,10 @@
     directMode = true;
     return new Promise((resolve) => {
       function step() {
-        if (directWatched >= TOTAL) { resolve(); return; }
-        title.textContent = `Ad ${directWatched + 1} of ${TOTAL}`;
+        if (directWatched >= MONETAG_TOTAL) { resolve(); return; }
+        title.textContent = `Ad ${directWatched + 1} of ${REQUIRED_ADS}`;
         subtitle.textContent = 'Tap below — ad ek naye tab mein khulega. Wapas aakar continue dabaayein.';
-        setBtn(`🎬 Open Ad ${directWatched + 1}/${TOTAL}`, false);
+        setBtn(`🎬 Open Ad ${directWatched + 1}/${REQUIRED_ADS}`, false);
         btn.onclick = () => {
           const link = DIRECT_LINKS[directWatched % DIRECT_LINKS.length];
           const url = link + (link.includes('?') ? '&' : '?') + 'var=' + encodeURIComponent(TOKEN + '_' + (directWatched + 1));
