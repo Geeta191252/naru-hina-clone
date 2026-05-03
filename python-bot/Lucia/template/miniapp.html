@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Watch Ads to Unlock File</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<!-- Official Monetag tag copied format: keep exactly once in <head> -->
-<script src="//libtl.com/sdk.js" data-zone="{{zone_id}}" data-sdk="show_{{zone_id}}"></script>
+<!-- Monetag dashboard tag: keep exactly once in <head> -->
+<script src='//libtl.com/sdk.js' data-zone='10953307' data-sdk='show_10953307'></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--tg-theme-bg-color,#0f172a);color:var(--tg-theme-text-color,#fff);overflow:hidden}
@@ -41,7 +41,7 @@
   const TOKEN = "{{token}}";
   const VERIFY_URL = "{{verify_url}}";
   const REDIRECT_URL = "{{redirect_url}}";
-  const ZONE_ID = "{{zone_id}}";
+  const ZONE_ID = "10953307";
   let started = false;
   let completed = false;
   let sdkLoadError = '';
@@ -50,7 +50,7 @@
   const title = document.getElementById('title');
   const subtitle = document.getElementById('subtitle');
 
-  const sdkTag = document.querySelector('script[data-sdk="show_' + ZONE_ID + '"]');
+  const sdkTag = document.querySelector('script[data-sdk="show_10953307"]');
   if (sdkTag) {
     sdkTag.addEventListener('load', () => console.log('[Ads] Monetag SDK script loaded'));
     sdkTag.addEventListener('error', () => {
@@ -65,7 +65,7 @@
   }
 
   function getShowFn() {
-    return window['show_' + ZONE_ID];
+    return window.show_10953307 || window['show_' + ZONE_ID];
   }
 
   function sleep(ms) {
@@ -94,11 +94,10 @@
       telegram: !!window.Telegram?.WebApp,
       error: sdkLoadError
     });
-    throw new Error('Ad SDK load nahi hua. Monetag dashboard me app/domain approve karo aur main zone id use karo.');
+    throw new Error('Ad SDK load nahi hua. Monetag dashboard me Rewarded Interstitial Activate karo.');
   }
 
-  // Show TOTAL rewarded interstitial ads sequentially. Each showAd() resolves
-  // when the user finishes (or skips) the ad, so we always know when to advance.
+  // Rewarded Interstitial dashboard format: show_10953307().then(...)
   async function showRewardedAdsSequentially() {
     const showAd = await waitForSdk();
     for (let i = 1; i <= TOTAL; i++) {
@@ -106,7 +105,7 @@
       subtitle.textContent = 'Watch the full ad to continue.';
       setBtn(`<span class="loader"></span> Showing ad ${i}/${TOTAL}...`, true);
       await withTimeout(
-        showAd({ type: 'end', ymid: TOKEN + '_' + i, requestVar: 'miniapp_unlock', catchIfNoFeed: true }),
+        Promise.resolve(showAd()),
         90000,
         'Ad timeout'
       );
