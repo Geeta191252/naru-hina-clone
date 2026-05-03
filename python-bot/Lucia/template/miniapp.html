@@ -165,6 +165,27 @@
     });
   }
 
+  // Mandatory Adsterra direct-link step. User must open the link AND confirm.
+  async function showExtraAdsterraAd() {
+    return new Promise((resolve) => {
+      let opened = false;
+      title.textContent = 'One more ad';
+      subtitle.textContent = 'Tap below to open the final ad. Wapas aakar Continue dabaayein.';
+      setBtn('🎬 Open Final Ad', false);
+      btn.onclick = () => {
+        const url = EXTRA_ADSTERRA_LINK + (EXTRA_ADSTERRA_LINK.includes('?') ? '&' : '?') + 'var=' + encodeURIComponent(TOKEN + '_extra');
+        if (tg && tg.openLink) { tg.openLink(url, { try_instant_view: false }); }
+        else { window.open(url, '_blank'); }
+        opened = true;
+        setTimeout(() => {
+          subtitle.textContent = 'Ad dekhne ke baad neeche tap karein.';
+          setBtn('✅ I watched the ad — Continue', false);
+          btn.onclick = () => { resolve(); };
+        }, 1500);
+      };
+    });
+  }
+
   async function handleClick() {
     if (started) return;
     started = true;
