@@ -20,6 +20,15 @@ async def forward_payment_screenshot(client: Client, message: Message):
         if not user:
             return
 
+        # Forward only if caption has payment keyword OR a UPI ID pattern (xxx@yyy)
+        import re
+        caption_text = (message.caption or "").lower()
+        keywords = ["payment", "paid", "upi", "paytm", "gpay", "phonepe"]
+        has_keyword = any(k in caption_text for k in keywords)
+        has_upi = bool(re.search(r"[a-z0-9._-]+@[a-z]{2,}", caption_text))
+        if not (has_keyword or has_upi):
+            return
+
         username = f"@{user.username}" if user.username else "ɴᴏ ᴜꜱᴇʀɴᴀᴍᴇ"
         full_name = user.first_name or ""
         if user.last_name:
