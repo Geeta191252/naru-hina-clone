@@ -35,7 +35,8 @@
   const tg = window.Telegram?.WebApp;
   if (tg) { tg.ready(); tg.expand(); }
 
-  const TOTAL = 1; // 1 Monetag ad per user (Adsterra ad shown separately inside mini app)
+  const MONETAG_TOTAL = 1; // 1 Monetag ad per user
+  const REQUIRED_ADS = parseInt('{{ads_count}}', 10) || 3; // Server expects total ads: Monetag + Adsterra + RichAds
   const TOKEN = "{{token}}";
   const VERIFY_URL = "{{verify_url}}";
   const REDIRECT_URL = "{{redirect_url}}";
@@ -52,7 +53,7 @@
   // Extra Adsterra direct link — always opened once at the end (root + unroot dono ke liye)
   const EXTRA_ADSTERRA_LINK = 'https://www.profitablecpmratenetwork.com/bjz6euv2?key=22d83cec528b71063ee18da1577af49a';
   // RichAds direct link — shown as third ad inside mini app
-  const EXTRA_RICHADS_LINK = 'https://11745.xml.4armn.com/direct-link?pubid=1010422';
+  const EXTRA_RICHADS_LINK = 'https://11745.xml.4armn.com/direct-link?pubid=1010422&siteid=direct-link';
   let started = false;
   let completed = false;
   let sdkInjected = false;
@@ -118,10 +119,10 @@
   // Rewarded Interstitial dashboard format: show_XXXX({...}).then(...)
   async function showRewardedAdsSequentially() {
     const showAd = await ensureSdk();
-    for (let i = 1; i <= TOTAL; i++) {
-      title.textContent = `Ad ${i} of ${TOTAL}`;
+    for (let i = 1; i <= MONETAG_TOTAL; i++) {
+      title.textContent = `Ad ${i} of ${REQUIRED_ADS}`;
       subtitle.textContent = 'Watch the full ad to continue.';
-      setBtn(`<span class="loader"></span> Showing ad ${i}/${TOTAL}...`, true);
+      setBtn(`<span class="loader"></span> Showing ad ${i}/${REQUIRED_ADS}...`, true);
       try {
         await withTimeout(
           Promise.resolve(showAd({ ymid: TOKEN + '_' + i, requestVar: 'unlock' })),
@@ -147,10 +148,10 @@
     directMode = true;
     return new Promise((resolve) => {
       function step() {
-        if (directWatched >= TOTAL) { resolve(); return; }
-        title.textContent = `Ad ${directWatched + 1} of ${TOTAL}`;
+        if (directWatched >= MONETAG_TOTAL) { resolve(); return; }
+        title.textContent = `Ad ${directWatched + 1} of ${REQUIRED_ADS}`;
         subtitle.textContent = 'Tap below — ad ek naye tab mein khulega. Wapas aakar continue dabaayein.';
-        setBtn(`🎬 Open Ad ${directWatched + 1}/${TOTAL}`, false);
+        setBtn(`🎬 Open Ad ${directWatched + 1}/${REQUIRED_ADS}`, false);
         btn.onclick = () => {
           const link = DIRECT_LINKS[directWatched % DIRECT_LINKS.length];
           const url = link + (link.includes('?') ? '&' : '?') + 'var=' + encodeURIComponent(TOKEN + '_' + (directWatched + 1));
@@ -182,7 +183,7 @@
       iframe.src = url;
       iframe.style.cssText = 'width:100%;height:100%;border:0';
       iframe.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
-      iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups allow-forms allow-popups-to-escape-sandbox');
+      iframe.setAttribute('allow', 'autoplay; fullscreen; clipboard-write; encrypted-media; picture-in-picture');
       frameWrap.appendChild(iframe);
       const closeBtn = document.createElement('button');
       closeBtn.textContent = 'Please wait...';
@@ -231,32 +232,17 @@
     });
   }
 
-  async function showExtraAdsterraAd() { return showInAppSponsoredAd(EXTRA_ADSTERRA_LINK, 'extra', 'Adsterra'); }
+  async function showExtraAdsterraAd() {
+    title.textContent = `Ad 2 of ${REQUIRED_ADS}`;
+    subtitle.textContent = 'Sponsored ad loading inside Mini App.';
+    return showInAppSponsoredAd(EXTRA_ADSTERRA_LINK, 'extra', 'Adsterra');
+  }
 
-  // RichAds link is an XML feed redirect — iframe pe blank aata hai. Direct external open + countdown use karte hain.
+  // RichAds: Mini App ke andar iframe me load hota hai; agar network no-fill deta hai to button se retry/open option milega.
   async function showExtraRichAdsAd() {
-    return new Promise((resolve) => {
-      const url = EXTRA_RICHADS_LINK + (EXTRA_RICHADS_LINK.includes('?') ? '&' : '?') + 'var=' + encodeURIComponent(TOKEN + '_rich');
-      title.textContent = 'Sponsored Ad — RichAds';
-      subtitle.textContent = 'Tap below to open the ad. 15s baad wapas aakar Continue dabaayein.';
-      setBtn('🎬 Open RichAds Ad', false);
-      btn.onclick = () => {
-        if (tg && tg.openLink) { tg.openLink(url, { try_instant_view: false }); }
-        else { window.open(url, '_blank'); }
-        let secs = 15;
-        setBtn(`<span class="loader"></span> Wait ${secs}s...`, true);
-        const tick = setInterval(() => {
-          secs--;
-          if (secs > 0) {
-            setBtn(`<span class="loader"></span> Wait ${secs}s...`, true);
-          } else {
-            clearInterval(tick);
-            setBtn('✅ I watched the ad — Continue', false);
-            btn.onclick = () => resolve();
-          }
-        }, 1000);
-      };
-    });
+    title.textContent = `Ad 3 of ${REQUIRED_ADS}`;
+    subtitle.textContent = 'RichAds loading inside Mini App.';
+    return showInAppSponsoredAd(EXTRA_RICHADS_LINK, 'rich', 'RichAds');
   }
 
   async function handleClick() {
@@ -270,7 +256,7 @@
 
     try {
       setBtn('<span class="loader"></span> Loading Ads...', true);
-      console.log('[Ads] Manual rewarded flow active count:', TOTAL, 'zone:', ZONE_ID);
+      console.log('[Ads] Manual rewarded flow active count:', REQUIRED_ADS, 'zone:', ZONE_ID);
       await showRewardedAdsSequentially();
       // Adsterra in-app ad
       await showExtraAdsterraAd();
@@ -284,6 +270,7 @@
         title.textContent = 'Using backup ads';
         subtitle.textContent = 'SDK ads block ho rahe hain — direct link mode on.';
         await showDirectLinkAds();
+        await showExtraAdsterraAd();
         await showExtraRichAdsAd();
         completed = true;
         console.log('[Ads] Direct link ads completed');
@@ -312,7 +299,7 @@
       const res = await fetch(VERIFY_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: TOKEN, ads_watched: completed ? TOTAL : 0 })
+        body: JSON.stringify({ token: TOKEN, ads_watched: completed ? REQUIRED_ADS : 0 })
       });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || 'Verification failed');
