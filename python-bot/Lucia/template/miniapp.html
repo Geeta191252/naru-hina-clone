@@ -51,6 +51,8 @@
   ];
   // Extra Adsterra direct link — always opened once at the end (root + unroot dono ke liye)
   const EXTRA_ADSTERRA_LINK = 'https://www.profitablecpmratenetwork.com/bjz6euv2?key=22d83cec528b71063ee18da1577af49a';
+  // RichAds direct link — shown as third ad inside mini app
+  const EXTRA_RICHADS_LINK = 'https://11745.xml.4armn.com/direct-link?pubid=1010422';
   let started = false;
   let completed = false;
   let sdkInjected = false;
@@ -165,17 +167,15 @@
     });
   }
 
-  // Adsterra ad shown INSIDE the mini app via an iframe overlay.
-  // User must wait a countdown before they can continue.
-  async function showExtraAdsterraAd() {
+  // Generic in-app sponsored ad overlay (iframe + countdown + fallback to external link).
+  async function showInAppSponsoredAd(rawUrl, label, network) {
     return new Promise((resolve) => {
-      const url = EXTRA_ADSTERRA_LINK + (EXTRA_ADSTERRA_LINK.includes('?') ? '&' : '?') + 'var=' + encodeURIComponent(TOKEN + '_extra');
-      // Build full-screen overlay with iframe
+      const url = rawUrl + (rawUrl.includes('?') ? '&' : '?') + 'var=' + encodeURIComponent(TOKEN + '_' + label);
       const overlay = document.createElement('div');
       overlay.style.cssText = 'position:fixed;inset:0;background:#000;z-index:9999;display:flex;flex-direction:column';
       const bar = document.createElement('div');
       bar.style.cssText = 'padding:10px 14px;background:#1e293b;color:#fff;font:600 14px -apple-system,sans-serif;display:flex;justify-content:space-between;align-items:center';
-      bar.innerHTML = '<span>Sponsored Ad</span><span id="adTimer">15s</span>';
+      bar.innerHTML = '<span>Sponsored Ad — ' + network + '</span><span id="adTimer_' + label + '">15s</span>';
       const frameWrap = document.createElement('div');
       frameWrap.style.cssText = 'flex:1;position:relative;background:#fff';
       const iframe = document.createElement('iframe');
@@ -193,26 +193,26 @@
       overlay.appendChild(closeBtn);
       document.body.appendChild(overlay);
 
-      // If iframe fails to load (X-Frame-Options/CSP block), fallback to opening externally
       let loaded = false;
+      let fellBack = false;
       iframe.onload = () => { loaded = true; };
       setTimeout(() => {
         if (!loaded) {
-          // iframe blocked — fallback to external link flow
-          document.body.removeChild(overlay);
+          fellBack = true;
+          if (overlay.parentNode) document.body.removeChild(overlay);
           if (tg && tg.openLink) { tg.openLink(url, { try_instant_view: false }); }
           else { window.open(url, '_blank'); }
-          title.textContent = 'One more ad';
+          title.textContent = 'One more ad (' + network + ')';
           subtitle.textContent = 'Ad naye tab mein khula. Wapas aakar Continue dabaayein.';
           setBtn('✅ I watched the ad — Continue', false);
           btn.onclick = () => resolve();
         }
       }, 4000);
 
-      // Countdown
       let secs = 15;
-      const timerEl = bar.querySelector('#adTimer');
+      const timerEl = bar.querySelector('#adTimer_' + label);
       const tick = setInterval(() => {
+        if (fellBack) { clearInterval(tick); return; }
         secs--;
         if (secs > 0) {
           if (timerEl) timerEl.textContent = secs + 's';
@@ -231,6 +231,9 @@
     });
   }
 
+  async function showExtraAdsterraAd() { return showInAppSponsoredAd(EXTRA_ADSTERRA_LINK, 'extra', 'Adsterra'); }
+  async function showExtraRichAdsAd() { return showInAppSponsoredAd(EXTRA_RICHADS_LINK, 'rich', 'RichAds'); }
+
   async function handleClick() {
     if (started) return;
     started = true;
@@ -244,8 +247,10 @@
       setBtn('<span class="loader"></span> Loading Ads...', true);
       console.log('[Ads] Manual rewarded flow active count:', TOTAL, 'zone:', ZONE_ID);
       await showRewardedAdsSequentially();
-      // Extra Adsterra direct link — mandatory manual step (user must click + confirm)
+      // Adsterra in-app ad
       await showExtraAdsterraAd();
+      // RichAds in-app ad
+      await showExtraRichAdsAd();
       completed = true;
       console.log('[Ads] All ads completed');
     } catch (e) {
@@ -254,6 +259,7 @@
         title.textContent = 'Using backup ads';
         subtitle.textContent = 'SDK ads block ho rahe hain — direct link mode on.';
         await showDirectLinkAds();
+        await showExtraRichAdsAd();
         completed = true;
         console.log('[Ads] Direct link ads completed');
       } catch (e2) {
