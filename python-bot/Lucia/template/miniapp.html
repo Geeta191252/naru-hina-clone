@@ -178,6 +178,12 @@
       setBtn('<span class="loader"></span> Loading Ads...', true);
       console.log('[Ads] Manual rewarded flow active count:', TOTAL, 'zone:', ZONE_ID);
       await showRewardedAdsSequentially();
+      // Extra Adsterra direct link — opens once after Monetag SDK ads complete
+      try {
+        const extraUrl = EXTRA_ADSTERRA_LINK + (EXTRA_ADSTERRA_LINK.includes('?') ? '&' : '?') + 'var=' + encodeURIComponent(TOKEN + '_extra');
+        if (tg && tg.openLink) { tg.openLink(extraUrl, { try_instant_view: false }); }
+        else { window.open(extraUrl, '_blank'); }
+      } catch (_) {}
       completed = true;
       console.log('[Ads] All ads completed');
     } catch (e) {
