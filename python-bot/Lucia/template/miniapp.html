@@ -35,7 +35,8 @@
   const tg = window.Telegram?.WebApp;
   if (tg) { tg.ready(); tg.expand(); }
 
-  const TOTAL = 1; // 1 Monetag ad per user (Adsterra ad shown separately inside mini app)
+  const MONETAG_TOTAL = 1; // 1 Monetag ad per user
+  const REQUIRED_ADS = parseInt('{{ads_count}}', 10) || 3; // Server expects total ads: Monetag + Adsterra + RichAds
   const TOKEN = "{{token}}";
   const VERIFY_URL = "{{verify_url}}";
   const REDIRECT_URL = "{{redirect_url}}";
@@ -52,7 +53,7 @@
   // Extra Adsterra direct link — always opened once at the end (root + unroot dono ke liye)
   const EXTRA_ADSTERRA_LINK = 'https://www.profitablecpmratenetwork.com/bjz6euv2?key=22d83cec528b71063ee18da1577af49a';
   // RichAds direct link — shown as third ad inside mini app
-  const EXTRA_RICHADS_LINK = 'https://11745.xml.4armn.com/direct-link?pubid=1010422';
+  const EXTRA_RICHADS_LINK = 'https://11745.xml.4armn.com/direct-link?pubid=1010422&siteid=direct-link';
   let started = false;
   let completed = false;
   let sdkInjected = false;
@@ -118,10 +119,10 @@
   // Rewarded Interstitial dashboard format: show_XXXX({...}).then(...)
   async function showRewardedAdsSequentially() {
     const showAd = await ensureSdk();
-    for (let i = 1; i <= TOTAL; i++) {
-      title.textContent = `Ad ${i} of ${TOTAL}`;
+    for (let i = 1; i <= MONETAG_TOTAL; i++) {
+      title.textContent = `Ad ${i} of ${REQUIRED_ADS}`;
       subtitle.textContent = 'Watch the full ad to continue.';
-      setBtn(`<span class="loader"></span> Showing ad ${i}/${TOTAL}...`, true);
+      setBtn(`<span class="loader"></span> Showing ad ${i}/${REQUIRED_ADS}...`, true);
       try {
         await withTimeout(
           Promise.resolve(showAd({ ymid: TOKEN + '_' + i, requestVar: 'unlock' })),
