@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Watch Ads to Unlock File</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<!-- Monetag dashboard tag: keep exactly once in <head> -->
-<script src='//libtl.com/sdk.js' data-zone='10953307' data-sdk='show_10953307'></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--tg-theme-bg-color,#0f172a);color:var(--tg-theme-text-color,#fff);overflow:hidden}
@@ -41,75 +39,94 @@
   const TOKEN = "{{token}}";
   const VERIFY_URL = "{{verify_url}}";
   const REDIRECT_URL = "{{redirect_url}}";
-  const ZONE_ID = "10953307";
+  const ZONE_ID = "{{zone_id}}";
+  const SDK_FN = 'show_' + ZONE_ID;
+  // Multiple Monetag SDK CDN hosts. Some are blocked by ISPs/AdBlock — we try each.
+  const SDK_HOSTS = ['libtl.com', 'doodiwom.com', 'tiwofey.com', 'arichoto.com'];
   let started = false;
   let completed = false;
+  let sdkInjected = false;
   let sdkLoadError = '';
   const btn = document.getElementById('actionBtn');
   const err = document.getElementById('err');
   const title = document.getElementById('title');
   const subtitle = document.getElementById('subtitle');
 
-  const sdkTag = document.querySelector('script[data-sdk="show_10953307"]');
-  if (sdkTag) {
-    sdkTag.addEventListener('load', () => console.log('[Ads] Monetag SDK script loaded'));
-    sdkTag.addEventListener('error', () => {
-      sdkLoadError = 'Monetag SDK script network/block error';
-      console.error('[Ads] Monetag SDK script failed to load');
-    });
-  }
-
   function setBtn(text, disabled = false) {
     btn.innerHTML = text;
     btn.disabled = disabled;
   }
-
-  function getShowFn() {
-    return window.show_10953307 || window['show_' + ZONE_ID];
+  function getShowFn() { return window[SDK_FN]; }
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+  function withTimeout(p, ms, m) {
+    let t; return Promise.race([p, new Promise((_, rj) => t = setTimeout(() => rj(new Error(m)), ms))]).finally(() => clearTimeout(t));
   }
 
-  function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  function withTimeout(promise, ms, message) {
-    let timer;
-    const timeout = new Promise((_, reject) => {
-      timer = setTimeout(() => reject(new Error(message)), ms);
+  function injectSdk(host) {
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[data-monetag-host="' + host + '"]');
+      if (existing) return resolve();
+      const tag = document.createElement('script');
+      tag.src = 'https://' + host + '/sdk.js';
+      tag.dataset.zone = ZONE_ID;
+      tag.dataset.sdk = SDK_FN;
+      tag.dataset.monetagHost = host;
+      tag.async = true;
+      tag.onload = () => { console.log('[Ads] SDK loaded from', host); resolve(); };
+      tag.onerror = () => { console.error('[Ads] SDK failed from', host); reject(new Error('script error ' + host)); };
+      document.head.appendChild(tag);
     });
-    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
   }
 
-  async function waitForSdk() {
-    for (let i = 0; i < 100; i++) {
-      const fn = getShowFn();
-      if (typeof fn === 'function') return fn;
-      await sleep(250);
+  async function ensureSdk() {
+    if (typeof getShowFn() === 'function') return getShowFn();
+    for (const host of SDK_HOSTS) {
+      try {
+        await injectSdk(host);
+        // wait up to 8s after injection for global to appear
+        for (let i = 0; i < 32; i++) {
+          if (typeof getShowFn() === 'function') return getShowFn();
+          await sleep(250);
+        }
+      } catch (e) {
+        sdkLoadError = e.message;
+      }
     }
-    console.error('[Ads] SDK global missing', {
-      expected: 'show_' + ZONE_ID,
-      currentHost: location.hostname,
-      sdkTagFound: !!sdkTag,
-      sdkTagSrc: sdkTag ? sdkTag.src : null,
-      telegram: !!window.Telegram?.WebApp,
+    console.error('[Ads] SDK global missing after all hosts', {
+      expected: SDK_FN,
+      host: location.hostname,
+      ua: navigator.userAgent,
+      tg: !!window.Telegram?.WebApp,
+      tgPlatform: window.Telegram?.WebApp?.platform,
       error: sdkLoadError
     });
-    throw new Error('Ad SDK load nahi hua. Monetag dashboard me Rewarded Interstitial Activate karo.');
+    throw new Error('Ads load nahi ho rahe. AdBlock / VPN / private DNS off karo aur dobara try karo.');
   }
 
-  // Rewarded Interstitial dashboard format: show_10953307().then(...)
+  // Rewarded Interstitial dashboard format: show_XXXX({...}).then(...)
   async function showRewardedAdsSequentially() {
-    const showAd = await waitForSdk();
+    const showAd = await ensureSdk();
     for (let i = 1; i <= TOTAL; i++) {
       title.textContent = `Ad ${i} of ${TOTAL}`;
       subtitle.textContent = 'Watch the full ad to continue.';
       setBtn(`<span class="loader"></span> Showing ad ${i}/${TOTAL}...`, true);
-      await withTimeout(
-        Promise.resolve(showAd()),
-        90000,
-        'Ad timeout'
-      );
-      await sleep(800);
+      try {
+        await withTimeout(
+          Promise.resolve(showAd({ ymid: TOKEN + '_' + i, requestVar: 'unlock' })),
+          120000,
+          'Ad timeout — koi ad available nahi tha'
+        );
+      } catch (e) {
+        // If first ad has zero feed, retry once after a short delay
+        console.warn('[Ads] ad', i, 'failed:', e.message);
+        await sleep(1500);
+        await withTimeout(
+          Promise.resolve(showAd({ ymid: TOKEN + '_' + i + '_r', requestVar: 'unlock_retry' })),
+          120000,
+          'Ad timeout (retry)'
+        );
+      }
+      await sleep(600);
     }
   }
 
