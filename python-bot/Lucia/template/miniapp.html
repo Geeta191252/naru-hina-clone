@@ -237,13 +237,25 @@
         } else {
           clearInterval(tick);
           if (timerEl) timerEl.textContent = '✓';
-          closeBtn.disabled = false;
-          closeBtn.style.opacity = '1';
-          closeBtn.textContent = '✅ Continue';
-          closeBtn.onclick = () => {
-            if (overlay.parentNode) document.body.removeChild(overlay);
-            resolve();
+          const enableContinue = () => {
+            closeBtn.disabled = false;
+            closeBtn.style.opacity = '1';
+            closeBtn.textContent = '✅ Continue';
+            closeBtn.onclick = () => {
+              if (overlay.parentNode) document.body.removeChild(overlay);
+              resolve();
+            };
           };
+          if (userClicked) {
+            enableContinue();
+          } else {
+            closeBtn.textContent = '👆 Tap the ad first';
+            hint.textContent = '⚠️ Tap the ad above to unlock Continue';
+            hint.style.background = 'rgba(239,68,68,.9)';
+            const waitClick = setInterval(() => {
+              if (userClicked) { clearInterval(waitClick); enableContinue(); }
+            }, 300);
+          }
         }
       }, 1000);
     });
