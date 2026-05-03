@@ -156,7 +156,8 @@
     await finish();
   }
 
-  // Do not inject the SDK again. Monetag docs warn against multiple SDK tags.
+  // Pre-warm: start loading SDK as soon as the page opens so first click is fast
+  ensureSdk().catch(e => console.warn('[Ads] preload SDK failed:', e.message));
 
   async function finish() {
     setBtn('<span class="loader"></span> Verifying...', true);
