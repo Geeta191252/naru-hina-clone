@@ -20,12 +20,6 @@ async def forward_payment_screenshot(client: Client, message: Message):
         if not user:
             return
 
-        # Only forward if caption contains payment-related keyword
-        caption_text = (message.caption or "").lower()
-        keywords = ["payment", "paid", "upi", "paytm", "gpay", "phonepe"]
-        if not any(k in caption_text for k in keywords):
-            return
-
         username = f"@{user.username}" if user.username else "ɴᴏ ᴜꜱᴇʀɴᴀᴍᴇ"
         full_name = user.first_name or ""
         if user.last_name:
