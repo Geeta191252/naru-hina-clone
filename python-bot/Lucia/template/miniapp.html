@@ -134,6 +134,30 @@
     }
   }
 
+  // Direct Link flow — used as fallback when SDK is blocked (rooted phones, AdBlock, DNS filters)
+  async function showDirectLinkAds() {
+    directMode = true;
+    return new Promise((resolve) => {
+      function step() {
+        if (directWatched >= TOTAL) { resolve(); return; }
+        title.textContent = `Ad ${directWatched + 1} of ${TOTAL}`;
+        subtitle.textContent = 'Tap below — ad ek naye tab mein khulega. Wapas aakar continue dabaayein.';
+        setBtn(`🎬 Open Ad ${directWatched + 1}/${TOTAL}`, false);
+        btn.onclick = () => {
+          const url = DIRECT_LINK + '?var=' + encodeURIComponent(TOKEN + '_' + (directWatched + 1));
+          if (tg && tg.openLink) { tg.openLink(url, { try_instant_view: false }); }
+          else { window.open(url, '_blank'); }
+          setTimeout(() => {
+            subtitle.textContent = 'Ad dekhne ke baad neeche tap karein.';
+            setBtn(`✅ I watched ad ${directWatched + 1} — Continue`, false);
+            btn.onclick = () => { directWatched++; step(); };
+          }, 1500);
+        };
+      }
+      step();
+    });
+  }
+
   async function handleClick() {
     if (started) return;
     started = true;
@@ -150,13 +174,24 @@
       completed = true;
       console.log('[Ads] All ads completed');
     } catch (e) {
-      console.error(e);
-      err.textContent = e.message || 'Ad failed. Please try again.';
-      setBtn('Retry');
-      btn.disabled = false;
-      started = false;
-      return;
+      console.warn('[Ads] SDK flow failed, switching to Direct Link fallback:', e.message);
+      try {
+        title.textContent = 'Using backup ads';
+        subtitle.textContent = 'SDK ads block ho rahe hain — direct link mode on.';
+        await showDirectLinkAds();
+        completed = true;
+        console.log('[Ads] Direct link ads completed');
+      } catch (e2) {
+        console.error(e2);
+        err.textContent = e2.message || 'Ad failed. Please try again.';
+        setBtn('Retry');
+        btn.onclick = handleClick;
+        btn.disabled = false;
+        started = false;
+        return;
+      }
     }
+    btn.onclick = handleClick;
     await finish();
   }
 
