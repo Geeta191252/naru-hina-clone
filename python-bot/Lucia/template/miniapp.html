@@ -43,8 +43,14 @@
   const SDK_FN = 'show_' + ZONE_ID;
   // Multiple Monetag SDK CDN hosts. Some are blocked by ISPs/AdBlock — we try each.
   const SDK_HOSTS = ['libtl.com', 'doodiwom.com', 'tiwofey.com', 'arichoto.com'];
-  // Direct Link fallback (works on rooted phones / when SDK is blocked)
-  const DIRECT_LINK = 'https://omg10.com/4/10930676';
+  // Direct Link fallbacks (work on rooted phones / when SDK is blocked)
+  // Multiple direct links rotated so user sees variety (Monetag + Adsterra)
+  const DIRECT_LINKS = [
+    'https://omg10.com/4/10930676',
+    'https://www.profitablecpmratenetwork.com/bjz6euv2?key=22d83cec528b71063ee18da1577af49a'
+  ];
+  // Extra Adsterra direct link — always opened once at the end (root + unroot dono ke liye)
+  const EXTRA_ADSTERRA_LINK = 'https://www.profitablecpmratenetwork.com/bjz6euv2?key=22d83cec528b71063ee18da1577af49a';
   let started = false;
   let completed = false;
   let sdkInjected = false;
@@ -144,7 +150,8 @@
         subtitle.textContent = 'Tap below — ad ek naye tab mein khulega. Wapas aakar continue dabaayein.';
         setBtn(`🎬 Open Ad ${directWatched + 1}/${TOTAL}`, false);
         btn.onclick = () => {
-          const url = DIRECT_LINK + '?var=' + encodeURIComponent(TOKEN + '_' + (directWatched + 1));
+          const link = DIRECT_LINKS[directWatched % DIRECT_LINKS.length];
+          const url = link + (link.includes('?') ? '&' : '?') + 'var=' + encodeURIComponent(TOKEN + '_' + (directWatched + 1));
           if (tg && tg.openLink) { tg.openLink(url, { try_instant_view: false }); }
           else { window.open(url, '_blank'); }
           setTimeout(() => {
@@ -171,6 +178,12 @@
       setBtn('<span class="loader"></span> Loading Ads...', true);
       console.log('[Ads] Manual rewarded flow active count:', TOTAL, 'zone:', ZONE_ID);
       await showRewardedAdsSequentially();
+      // Extra Adsterra direct link — opens once after Monetag SDK ads complete
+      try {
+        const extraUrl = EXTRA_ADSTERRA_LINK + (EXTRA_ADSTERRA_LINK.includes('?') ? '&' : '?') + 'var=' + encodeURIComponent(TOKEN + '_extra');
+        if (tg && tg.openLink) { tg.openLink(extraUrl, { try_instant_view: false }); }
+        else { window.open(extraUrl, '_blank'); }
+      } catch (_) {}
       completed = true;
       console.log('[Ads] All ads completed');
     } catch (e) {
