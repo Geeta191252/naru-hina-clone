@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Watch Ads to Unlock File</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<!-- Monetag SDK is injected by JS with retry support for Telegram WebView -->
+<!-- Official Monetag SDK tag: keep it in <head> so Telegram WebView initializes it correctly -->
+<script id="monetagSdk" src="https://libtl.com/sdk.js" data-zone="{{zone_id}}" data-sdk="show_{{zone_id}}"></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--tg-theme-bg-color,#0f172a);color:var(--tg-theme-text-color,#fff);overflow:hidden}
@@ -41,7 +42,7 @@
   const VERIFY_URL = "{{verify_url}}";
   const REDIRECT_URL = "{{redirect_url}}";
   const ZONE_ID = "{{zone_id}}";
-  const SDK_SRC = 'https://libtl.com/sdk.js';
+  const SDK_URLS = ['https://libtl.com/sdk.js', '//libtl.com/sdk.js'];
 
   let started = false;
   let completed = false;
@@ -72,21 +73,21 @@
     return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
   }
 
-  function injectSdkScript(force = false) {
+  function injectSdkScript(force = false, target = document.head, src = SDK_URLS[0]) {
     const existingShow = getShowFn();
     if (typeof existingShow === 'function') return Promise.resolve(existingShow);
     if (sdkPromise && !force) return sdkPromise;
 
     const oldTag = document.getElementById('monetagSdk');
-    if (oldTag) oldTag.remove();
+    if (oldTag && force) oldTag.remove();
 
     sdkPromise = new Promise((resolve, reject) => {
-      const tag = document.createElement('script');
-      tag.id = 'monetagSdk';
-      tag.src = SDK_SRC + '?v=' + Date.now();
-      tag.async = false;
-      tag.setAttribute('data-zone', ZONE_ID);
-      tag.setAttribute('data-sdk', 'show_' + ZONE_ID);
+      const tag = oldTag && !force ? oldTag : document.createElement('script');
+      if (!tag.id) tag.id = 'monetagSdk';
+      if (!tag.src) tag.src = src;
+      tag.async = true;
+      tag.dataset.zone = ZONE_ID;
+      tag.dataset.sdk = 'show_' + ZONE_ID;
 
       let settled = false;
       const finish = (ok, value) => {
@@ -97,7 +98,7 @@
       };
 
       const timer = setTimeout(() => finish(false, 'Ad SDK load timeout'), 15000);
-      tag.onload = async () => {
+      const waitForGlobal = async () => {
         for (let i = 0; i < 40; i++) {
           const fn = getShowFn();
           if (typeof fn === 'function') return finish(true, fn);
@@ -105,8 +106,10 @@
         }
         finish(false, 'Ad SDK loaded but show_' + ZONE_ID + ' not found');
       };
+      tag.onload = waitForGlobal;
       tag.onerror = () => finish(false, 'Ad SDK script blocked');
-      document.head.appendChild(tag);
+      if (!tag.parentNode) target.appendChild(tag);
+      waitForGlobal();
     }).catch(e => {
       sdkPromise = null;
       throw e;
@@ -116,15 +119,21 @@
   }
 
   async function waitForSdk() {
-    for (let attempt = 1; attempt <= 3; attempt++) {
+    const attempts = [
+      { force: false, target: document.head, src: SDK_URLS[0] },
+      { force: true, target: document.head, src: SDK_URLS[0] },
+      { force: true, target: document.body, src: SDK_URLS[1] },
+    ];
+    for (let i = 0; i < attempts.length; i++) {
       try {
-        return await injectSdkScript(attempt > 1);
+        const a = attempts[i];
+        return await injectSdkScript(a.force, a.target, a.src);
       } catch (e) {
-        console.warn('[Ads] SDK load attempt failed:', attempt, e.message);
-        if (attempt < 3) await sleep(1000);
+        console.warn('[Ads] SDK load attempt failed:', i + 1, e.message);
+        if (i < attempts.length - 1) await sleep(1000);
       }
     }
-    throw new Error('Ad SDK blocked/not loaded. Check Monetag zone/domain.');
+    throw new Error('Ad SDK load nahi hua. Monetag me Telegram Mini App/domain approve hona chahiye.');
   }
 
   // Show TOTAL rewarded interstitial ads sequentially. Each showAd() resolves
@@ -141,20 +150,12 @@
           12000,
           'Ad preload timeout'
         );
-        await withTimeout(
-          showAd({ type: 'end', ymid: TOKEN, requestVar: 'miniapp_unlock' }),
-          90000,
-          'Ad timeout'
-        );
+        await withTimeout(showAd({ ymid: TOKEN, requestVar: 'miniapp_unlock' }), 90000, 'Ad timeout');
       } catch (adErr) {
         console.warn('[Ads] showAd error on #' + i, adErr);
         // brief pause then retry once
         await sleep(1500);
-        await withTimeout(
-          showAd({ type: 'end', ymid: TOKEN, requestVar: 'miniapp_unlock_retry' }),
-          90000,
-          'Ad retry timeout'
-        );
+        await withTimeout(showAd({ ymid: TOKEN, requestVar: 'miniapp_unlock_retry' }), 90000, 'Ad retry timeout');
       }
       await sleep(800);
     }
