@@ -247,8 +247,10 @@
       setBtn('<span class="loader"></span> Loading Ads...', true);
       console.log('[Ads] Manual rewarded flow active count:', TOTAL, 'zone:', ZONE_ID);
       await showRewardedAdsSequentially();
-      // Extra Adsterra direct link — mandatory manual step (user must click + confirm)
+      // Adsterra in-app ad
       await showExtraAdsterraAd();
+      // RichAds in-app ad
+      await showExtraRichAdsAd();
       completed = true;
       console.log('[Ads] All ads completed');
     } catch (e) {
