@@ -6,7 +6,7 @@
 <title>Watch Ads to Unlock File</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <!-- Monetag SDK -->
-<script src='//libtl.com/sdk.js' data-zone='{{zone_id}}' data-sdk='show_{{zone_id}}'></script>
+<script id="monetagSdk" src="https://libtl.com/sdk.js" data-zone="{{zone_id}}" data-sdk="show_{{zone_id}}" async></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--tg-theme-bg-color,#0f172a);color:var(--tg-theme-text-color,#fff);overflow:hidden}
@@ -26,9 +26,9 @@
 </head>
 <body>
   <div class="card" id="card">
-    <h1 id="title">Please wait...</h1>
-    <p class="sub" id="subtitle">Ads loading, keep this screen open.</p>
-    <button id="actionBtn" onclick="handleClick()"><span class="loader"></span> Loading...</button>
+    <h1 id="title">Watch ads to unlock</h1>
+    <p class="sub" id="subtitle">Tap the button below and keep this screen open.</p>
+    <button id="actionBtn" onclick="handleClick()">🎬 Watch Ads & Get File</button>
     <div class="err" id="err"></div>
   </div>
   <div class="footer">Powered by Monetag</div>
@@ -65,8 +65,20 @@
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
+  function ensureSdkScript() {
+    if (document.getElementById('monetagSdk')) return;
+    const tag = document.createElement('script');
+    tag.id = 'monetagSdk';
+    tag.src = 'https://libtl.com/sdk.js';
+    tag.async = true;
+    tag.dataset.zone = ZONE_ID;
+    tag.dataset.sdk = 'show_' + ZONE_ID;
+    document.head.appendChild(tag);
+  }
+
   async function waitForSdk() {
-    for (let i = 0; i < 30; i++) {
+    ensureSdkScript();
+    for (let i = 0; i < 60; i++) {
       if (typeof getShowFn() === 'function') return getShowFn();
       await sleep(250);
     }
@@ -104,7 +116,7 @@
 
     try {
       setBtn('<span class="loader"></span> Loading Ads...', true);
-      console.log('[Ads] Native in-app auto flow active count:', TOTAL, 'interval:', INAPP_INTERVAL_SECONDS);
+      console.log('[Ads] Manual rewarded flow active count:', TOTAL, 'zone:', ZONE_ID);
       await showRewardedAdsSequentially();
       completed = true;
       console.log('[Ads] All ads completed');
@@ -119,12 +131,9 @@
     await finish();
   }
 
-  // Auto-start ads on page load (no button click needed)
-  window.addEventListener('load', () => {
-    setTimeout(() => {
-      if (!started && !btn.disabled) handleClick();
-    }, 800);
-  });
+  // Preload SDK only. Ads must be started by a real user tap, otherwise
+  // Telegram/Android WebView can block Monetag from opening the ad.
+  window.addEventListener('load', () => setTimeout(ensureSdkScript, 300));
 
   async function finish() {
     setBtn('<span class="loader"></span> Verifying...', true);
