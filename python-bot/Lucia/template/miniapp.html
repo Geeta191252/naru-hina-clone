@@ -150,7 +150,8 @@
         subtitle.textContent = 'Tap below — ad ek naye tab mein khulega. Wapas aakar continue dabaayein.';
         setBtn(`🎬 Open Ad ${directWatched + 1}/${TOTAL}`, false);
         btn.onclick = () => {
-          const url = DIRECT_LINK + '?var=' + encodeURIComponent(TOKEN + '_' + (directWatched + 1));
+          const link = DIRECT_LINKS[directWatched % DIRECT_LINKS.length];
+          const url = link + (link.includes('?') ? '&' : '?') + 'var=' + encodeURIComponent(TOKEN + '_' + (directWatched + 1));
           if (tg && tg.openLink) { tg.openLink(url, { try_instant_view: false }); }
           else { window.open(url, '_blank'); }
           setTimeout(() => {
