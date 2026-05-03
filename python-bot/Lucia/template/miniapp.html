@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Watch Ads to Unlock File</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<!-- Official Monetag SDK tag: keep it in <head> so Telegram WebView initializes it correctly -->
-<script id="monetagSdk" src="https://libtl.com/sdk.js" data-zone="{{zone_id}}" data-sdk="show_{{zone_id}}"></script>
+<!-- Official Monetag tag copied format: keep exactly once in <head> -->
+<script src="//libtl.com/sdk.js" data-zone="{{zone_id}}" data-sdk="show_{{zone_id}}"></script>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--tg-theme-bg-color,#0f172a);color:var(--tg-theme-text-color,#fff);overflow:hidden}
@@ -42,15 +42,22 @@
   const VERIFY_URL = "{{verify_url}}";
   const REDIRECT_URL = "{{redirect_url}}";
   const ZONE_ID = "{{zone_id}}";
-  const SDK_URLS = ['https://libtl.com/sdk.js', '//libtl.com/sdk.js'];
-
   let started = false;
   let completed = false;
-  let sdkPromise = null;
+  let sdkLoadError = '';
   const btn = document.getElementById('actionBtn');
   const err = document.getElementById('err');
   const title = document.getElementById('title');
   const subtitle = document.getElementById('subtitle');
+
+  const sdkTag = document.querySelector('script[data-sdk="show_' + ZONE_ID + '"]');
+  if (sdkTag) {
+    sdkTag.addEventListener('load', () => console.log('[Ads] Monetag SDK script loaded'));
+    sdkTag.addEventListener('error', () => {
+      sdkLoadError = 'Monetag SDK script network/block error';
+      console.error('[Ads] Monetag SDK script failed to load');
+    });
+  }
 
   function setBtn(text, disabled = false) {
     btn.innerHTML = text;
@@ -73,67 +80,21 @@
     return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
   }
 
-  function injectSdkScript(force = false, target = document.head, src = SDK_URLS[0]) {
-    const existingShow = getShowFn();
-    if (typeof existingShow === 'function') return Promise.resolve(existingShow);
-    if (sdkPromise && !force) return sdkPromise;
-
-    const oldTag = document.getElementById('monetagSdk');
-    if (oldTag && force) oldTag.remove();
-
-    sdkPromise = new Promise((resolve, reject) => {
-      const tag = oldTag && !force ? oldTag : document.createElement('script');
-      if (!tag.id) tag.id = 'monetagSdk';
-      if (!tag.src) tag.src = src;
-      tag.async = true;
-      tag.dataset.zone = ZONE_ID;
-      tag.dataset.sdk = 'show_' + ZONE_ID;
-
-      let settled = false;
-      const finish = (ok, value) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        ok ? resolve(value) : reject(new Error(value));
-      };
-
-      const timer = setTimeout(() => finish(false, 'Ad SDK load timeout'), 15000);
-      const waitForGlobal = async () => {
-        for (let i = 0; i < 40; i++) {
-          const fn = getShowFn();
-          if (typeof fn === 'function') return finish(true, fn);
-          await sleep(250);
-        }
-        finish(false, 'Ad SDK loaded but show_' + ZONE_ID + ' not found');
-      };
-      tag.onload = waitForGlobal;
-      tag.onerror = () => finish(false, 'Ad SDK script blocked');
-      if (!tag.parentNode) target.appendChild(tag);
-      waitForGlobal();
-    }).catch(e => {
-      sdkPromise = null;
-      throw e;
-    });
-
-    return sdkPromise;
-  }
-
   async function waitForSdk() {
-    const attempts = [
-      { force: false, target: document.head, src: SDK_URLS[0] },
-      { force: true, target: document.head, src: SDK_URLS[0] },
-      { force: true, target: document.body, src: SDK_URLS[1] },
-    ];
-    for (let i = 0; i < attempts.length; i++) {
-      try {
-        const a = attempts[i];
-        return await injectSdkScript(a.force, a.target, a.src);
-      } catch (e) {
-        console.warn('[Ads] SDK load attempt failed:', i + 1, e.message);
-        if (i < attempts.length - 1) await sleep(1000);
-      }
+    for (let i = 0; i < 100; i++) {
+      const fn = getShowFn();
+      if (typeof fn === 'function') return fn;
+      await sleep(250);
     }
-    throw new Error('Ad SDK load nahi hua. Monetag me Telegram Mini App/domain approve hona chahiye.');
+    console.error('[Ads] SDK global missing', {
+      expected: 'show_' + ZONE_ID,
+      currentHost: location.hostname,
+      sdkTagFound: !!sdkTag,
+      sdkTagSrc: sdkTag ? sdkTag.src : null,
+      telegram: !!window.Telegram?.WebApp,
+      error: sdkLoadError
+    });
+    throw new Error('Ad SDK load nahi hua. Monetag dashboard me app/domain approve karo aur main zone id use karo.');
   }
 
   // Show TOTAL rewarded interstitial ads sequentially. Each showAd() resolves
@@ -144,19 +105,11 @@
       title.textContent = `Ad ${i} of ${TOTAL}`;
       subtitle.textContent = 'Watch the full ad to continue.';
       setBtn(`<span class="loader"></span> Showing ad ${i}/${TOTAL}...`, true);
-      try {
-        await withTimeout(
-          showAd({ type: 'preload', timeout: 8, ymid: TOKEN, requestVar: 'miniapp_unlock' }),
-          12000,
-          'Ad preload timeout'
-        );
-        await withTimeout(showAd({ ymid: TOKEN, requestVar: 'miniapp_unlock' }), 90000, 'Ad timeout');
-      } catch (adErr) {
-        console.warn('[Ads] showAd error on #' + i, adErr);
-        // brief pause then retry once
-        await sleep(1500);
-        await withTimeout(showAd({ ymid: TOKEN, requestVar: 'miniapp_unlock_retry' }), 90000, 'Ad retry timeout');
-      }
+      await withTimeout(
+        showAd({ type: 'end', ymid: TOKEN + '_' + i, requestVar: 'miniapp_unlock', catchIfNoFeed: true }),
+        90000,
+        'Ad timeout'
+      );
       await sleep(800);
     }
   }
@@ -187,8 +140,7 @@
     await finish();
   }
 
-  // Load SDK early; ads still start only after a real user tap.
-  window.addEventListener('load', () => setTimeout(() => injectSdkScript().catch(e => console.warn('[Ads] preload failed:', e.message)), 300));
+  // Do not inject the SDK again. Monetag docs warn against multiple SDK tags.
 
   async function finish() {
     setBtn('<span class="loader"></span> Verifying...', true);
