@@ -262,6 +262,12 @@
     return showInAppSponsoredAd(MONETAG_DIRECT_LINK, 'monetag2', 'Monetag');
   }
 
+  async function showHilltopDirectAd() {
+    title.textContent = `Ad 3 of ${REQUIRED_ADS}`;
+    subtitle.textContent = 'Sponsored ad loading inside Mini App.';
+    return showInAppSponsoredAd(HILLTOP_DIRECT_LINK, 'hilltop3', 'HilltopAds');
+  }
+
   async function handleClick() {
     if (started) return;
     started = true;
