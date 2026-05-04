@@ -36,7 +36,7 @@
   if (tg) { tg.ready(); tg.expand(); }
 
   const MONETAG_TOTAL = 1; // 1 Monetag SDK rewarded ad
-  const REQUIRED_ADS = 2; // Total: 1 SDK rewarded + 1 Monetag direct link
+  const REQUIRED_ADS = 3; // Total: 1 SDK rewarded + 1 Monetag direct + 1 HilltopAds direct
   const TOKEN = "{{token}}";
   const VERIFY_URL = "{{verify_url}}";
   const REDIRECT_URL = "{{redirect_url}}";
@@ -46,7 +46,9 @@
   const SDK_HOSTS = ['libtl.com', 'doodiwom.com', 'tiwofey.com', 'arichoto.com'];
   // Monetag direct link — shown as 2nd ad (and SDK fallback)
   const MONETAG_DIRECT_LINK = 'https://omg10.com/4/10930676';
-  const DIRECT_LINKS = [MONETAG_DIRECT_LINK];
+  // HilltopAds direct link — shown as 3rd ad (works on rooted phones too)
+  const HILLTOP_DIRECT_LINK = 'https://fluffy-machine.com/far0wv';
+  const DIRECT_LINKS = [MONETAG_DIRECT_LINK, HILLTOP_DIRECT_LINK];
   let started = false;
   let completed = false;
   let sdkInjected = false;
