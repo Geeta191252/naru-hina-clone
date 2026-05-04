@@ -35,8 +35,8 @@
   const tg = window.Telegram?.WebApp;
   if (tg) { tg.ready(); tg.expand(); }
 
-  const MONETAG_TOTAL = 1; // 1 Monetag ad per user
-  const REQUIRED_ADS = parseInt('{{ads_count}}', 10) || 3; // Server expects total ads: Monetag + Adsterra + RichAds
+  const MONETAG_TOTAL = 1; // 1 Monetag SDK rewarded ad
+  const REQUIRED_ADS = 2; // Total: 1 SDK rewarded + 1 Monetag direct link
   const TOKEN = "{{token}}";
   const VERIFY_URL = "{{verify_url}}";
   const REDIRECT_URL = "{{redirect_url}}";
@@ -44,16 +44,9 @@
   const SDK_FN = 'show_' + ZONE_ID;
   // Multiple Monetag SDK CDN hosts. Some are blocked by ISPs/AdBlock — we try each.
   const SDK_HOSTS = ['libtl.com', 'doodiwom.com', 'tiwofey.com', 'arichoto.com'];
-  // Direct Link fallbacks (work on rooted phones / when SDK is blocked)
-  // Multiple direct links rotated so user sees variety (Monetag + Adsterra)
-  const DIRECT_LINKS = [
-    'https://omg10.com/4/10930676',
-    'https://www.profitablecpmratenetwork.com/bjz6euv2?key=22d83cec528b71063ee18da1577af49a'
-  ];
-  // Extra Adsterra direct link #1 — shown as 2nd ad
-  const EXTRA_ADSTERRA_LINK = 'https://www.profitablecpmratenetwork.com/bjz6euv2?key=22d83cec528b71063ee18da1577af49a';
-  // Extra Adsterra direct link #2 — shown as 3rd ad
-  const EXTRA_ADSTERRA_LINK_2 = 'https://www.profitablecpmratenetwork.com/t19f7guvi?key=f6dedba0aea188dc681eeaf2bb470ff1';
+  // Monetag direct link — shown as 2nd ad (and SDK fallback)
+  const MONETAG_DIRECT_LINK = 'https://omg10.com/4/10930676';
+  const DIRECT_LINKS = [MONETAG_DIRECT_LINK];
   let started = false;
   let completed = false;
   let sdkInjected = false;
@@ -261,16 +254,10 @@
     });
   }
 
-  async function showExtraAdsterraAd() {
+  async function showMonetagDirectAd() {
     title.textContent = `Ad 2 of ${REQUIRED_ADS}`;
     subtitle.textContent = 'Sponsored ad loading inside Mini App.';
-    return showInAppSponsoredAd(EXTRA_ADSTERRA_LINK, 'extra', 'Adsterra');
-  }
-
-  async function showExtraAdsterraAd2() {
-    title.textContent = `Ad 3 of ${REQUIRED_ADS}`;
-    subtitle.textContent = 'Sponsored ad loading inside Mini App.';
-    return showInAppSponsoredAd(EXTRA_ADSTERRA_LINK_2, 'extra2', 'Adsterra');
+    return showInAppSponsoredAd(MONETAG_DIRECT_LINK, 'monetag2', 'Monetag');
   }
 
   async function handleClick() {
@@ -286,10 +273,8 @@
       setBtn('<span class="loader"></span> Loading Ads...', true);
       console.log('[Ads] Manual rewarded flow active count:', REQUIRED_ADS, 'zone:', ZONE_ID);
       await showRewardedAdsSequentially();
-      // Adsterra in-app ad #1
-      await showExtraAdsterraAd();
-      // Adsterra in-app ad #2
-      await showExtraAdsterraAd2();
+      // Monetag direct link as 2nd ad
+      await showMonetagDirectAd();
       completed = true;
       console.log('[Ads] All ads completed');
     } catch (e) {
@@ -298,8 +283,7 @@
         title.textContent = 'Using backup ads';
         subtitle.textContent = 'SDK ads block ho rahe hain — direct link mode on.';
         await showDirectLinkAds();
-        await showExtraAdsterraAd();
-        await showExtraAdsterraAd2();
+        await showMonetagDirectAd();
         completed = true;
         console.log('[Ads] Direct link ads completed');
       } catch (e2) {
