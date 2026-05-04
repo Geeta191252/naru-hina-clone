@@ -254,16 +254,10 @@
     });
   }
 
-  async function showExtraAdsterraAd() {
+  async function showMonetagDirectAd() {
     title.textContent = `Ad 2 of ${REQUIRED_ADS}`;
     subtitle.textContent = 'Sponsored ad loading inside Mini App.';
-    return showInAppSponsoredAd(EXTRA_ADSTERRA_LINK, 'extra', 'Adsterra');
-  }
-
-  async function showExtraAdsterraAd2() {
-    title.textContent = `Ad 3 of ${REQUIRED_ADS}`;
-    subtitle.textContent = 'Sponsored ad loading inside Mini App.';
-    return showInAppSponsoredAd(EXTRA_ADSTERRA_LINK_2, 'extra2', 'Adsterra');
+    return showInAppSponsoredAd(MONETAG_DIRECT_LINK, 'monetag2', 'Monetag');
   }
 
   async function handleClick() {
@@ -279,10 +273,8 @@
       setBtn('<span class="loader"></span> Loading Ads...', true);
       console.log('[Ads] Manual rewarded flow active count:', REQUIRED_ADS, 'zone:', ZONE_ID);
       await showRewardedAdsSequentially();
-      // Adsterra in-app ad #1
-      await showExtraAdsterraAd();
-      // Adsterra in-app ad #2
-      await showExtraAdsterraAd2();
+      // Monetag direct link as 2nd ad
+      await showMonetagDirectAd();
       completed = true;
       console.log('[Ads] All ads completed');
     } catch (e) {
@@ -291,8 +283,7 @@
         title.textContent = 'Using backup ads';
         subtitle.textContent = 'SDK ads block ho rahe hain — direct link mode on.';
         await showDirectLinkAds();
-        await showExtraAdsterraAd();
-        await showExtraAdsterraAd2();
+        await showMonetagDirectAd();
         completed = true;
         console.log('[Ads] Direct link ads completed');
       } catch (e2) {
