@@ -277,35 +277,43 @@
     title.textContent = 'Ads loading...';
     subtitle.textContent = 'Do not close this screen.';
 
+    // Quick SDK probe — agar 4s ke andar SDK ready ho to rewarded ad use karo,
+    // warna seedha direct-link mode (rooted phones / AdBlock / DNS-block ke liye).
+    let sdkReady = false;
+    try {
+      setBtn('<span class="loader"></span> Checking ads...', true);
+      await withTimeout(ensureSdk(), 4000, 'sdk probe timeout');
+      sdkReady = true;
+    } catch (probeErr) {
+      console.warn('[Ads] SDK not available, using direct-link mode:', probeErr.message);
+    }
+
     try {
       setBtn('<span class="loader"></span> Loading Ads...', true);
-      console.log('[Ads] Manual rewarded flow active count:', REQUIRED_ADS, 'zone:', ZONE_ID);
-      await showRewardedAdsSequentially();
-      // Monetag direct link as 2nd ad
+      console.log('[Ads] Flow start. sdkReady=', sdkReady, 'count:', REQUIRED_ADS, 'zone:', ZONE_ID);
+      if (sdkReady) {
+        try {
+          await showRewardedAdsSequentially();
+        } catch (sdkErr) {
+          console.warn('[Ads] SDK ad failed mid-flow, switching to direct link:', sdkErr.message);
+          await showInAppSponsoredAd(MONETAG_DIRECT_LINK, 'monetag1', 'Monetag');
+        }
+      } else {
+        // Rooted / blocked — Ad 1 bhi direct link
+        await showInAppSponsoredAd(MONETAG_DIRECT_LINK, 'monetag1', 'Monetag');
+      }
       await showMonetagDirectAd();
-      // Monetag direct link #2 as 3rd ad
       await showMonetagDirectAd2();
       completed = true;
       console.log('[Ads] All ads completed');
     } catch (e) {
-      console.warn('[Ads] SDK flow failed, switching to Direct Link fallback:', e.message);
-      try {
-        title.textContent = 'Using backup ads';
-        subtitle.textContent = 'SDK ads block ho rahe hain — direct link mode on.';
-        await showDirectLinkAds();
-        await showMonetagDirectAd();
-        await showMonetagDirectAd2();
-        completed = true;
-        console.log('[Ads] Direct link ads completed');
-      } catch (e2) {
-        console.error(e2);
-        err.textContent = e2.message || 'Ad failed. Please try again.';
-        setBtn('Retry');
-        btn.onclick = handleClick;
-        btn.disabled = false;
-        started = false;
-        return;
-      }
+      console.error('[Ads] Final failure:', e);
+      err.textContent = e.message || 'Ad failed. Please try again.';
+      setBtn('Retry');
+      btn.onclick = handleClick;
+      btn.disabled = false;
+      started = false;
+      return;
     }
     btn.onclick = handleClick;
     await finish();
