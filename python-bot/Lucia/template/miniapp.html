@@ -283,8 +283,8 @@
       await showRewardedAdsSequentially();
       // Monetag direct link as 2nd ad
       await showMonetagDirectAd();
-      // HilltopAds direct link as 3rd ad
-      await showHilltopDirectAd();
+      // Monetag direct link #2 as 3rd ad
+      await showMonetagDirectAd2();
       completed = true;
       console.log('[Ads] All ads completed');
     } catch (e) {
@@ -294,7 +294,7 @@
         subtitle.textContent = 'SDK ads block ho rahe hain — direct link mode on.';
         await showDirectLinkAds();
         await showMonetagDirectAd();
-        await showHilltopDirectAd();
+        await showMonetagDirectAd2();
         completed = true;
         console.log('[Ads] Direct link ads completed');
       } catch (e2) {
