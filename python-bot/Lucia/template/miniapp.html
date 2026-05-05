@@ -46,9 +46,9 @@
   const SDK_HOSTS = ['libtl.com', 'doodiwom.com', 'tiwofey.com', 'arichoto.com'];
   // Monetag direct link — shown as 2nd ad (and SDK fallback)
   const MONETAG_DIRECT_LINK = 'https://omg10.com/4/10930676';
-  // HilltopAds direct link — shown as 3rd ad (works on rooted phones too)
-  const HILLTOP_DIRECT_LINK = 'https://fluffy-machine.com/far0wv';
-  const DIRECT_LINKS = [MONETAG_DIRECT_LINK, HILLTOP_DIRECT_LINK];
+  // Monetag direct link #2 — shown as 3rd ad (works on rooted phones too)
+  const MONETAG_DIRECT_LINK_2 = 'https://omg10.com/4/10650167';
+  const DIRECT_LINKS = [MONETAG_DIRECT_LINK, MONETAG_DIRECT_LINK_2];
   let started = false;
   let completed = false;
   let sdkInjected = false;
@@ -262,10 +262,10 @@
     return showInAppSponsoredAd(MONETAG_DIRECT_LINK, 'monetag2', 'Monetag');
   }
 
-  async function showHilltopDirectAd() {
+  async function showMonetagDirectAd2() {
     title.textContent = `Ad 3 of ${REQUIRED_ADS}`;
     subtitle.textContent = 'Sponsored ad loading inside Mini App.';
-    return showInAppSponsoredAd(HILLTOP_DIRECT_LINK, 'hilltop3', 'HilltopAds');
+    return showInAppSponsoredAd(MONETAG_DIRECT_LINK_2, 'monetag3', 'Monetag');
   }
 
   async function handleClick() {
